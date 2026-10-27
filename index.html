@@ -39,6 +39,7 @@ body{color:var(--ink);font-family:var(--display);-webkit-user-select:none;user-s
 .slot{width:16px;height:16px;transform:rotate(45deg);border:2px solid var(--c);opacity:.35;background:transparent;transition:opacity .2s, background .2s}
 .slot.carried{opacity:1;background:var(--c);box-shadow:0 0 10px var(--c)}
 .slot.placed{opacity:1;background:var(--c);outline:2px solid var(--ink);outline-offset:2px}
+#status{font-size:14px;color:var(--gold)}
 .coins{font-size:16px;color:var(--gold);font-variant-numeric:tabular-nums}
 
 .mini{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px, env(safe-area-inset-right,0px));padding:8px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
@@ -67,6 +68,7 @@ body{color:var(--ink);font-family:var(--display);-webkit-user-select:none;user-s
 .compass{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:15px}
 .compass div{display:flex;gap:8px;align-items:baseline;min-width:0}
 .compass b{color:var(--gold);width:16px;flex:none}
+.build{font-size:12px;color:var(--muted);text-align:center;letter-spacing:.08em}
 .keys{font-size:14px;color:var(--muted);line-height:1.6}
 kbd{font-family:var(--display);border:1px solid var(--line);border-bottom-width:2px;padding:0 5px;border-radius:3px;color:var(--ink)}
 
@@ -99,6 +101,7 @@ body.talking .hint{display:none}
 <div class="hud panel" aria-live="polite">
   <div class="row"><span class="label">HP</span><div class="bar"><i id="hpFill"></i></div></div>
   <div class="row"><span class="label">Relics</span><div class="slots" id="slots"></div></div>
+  <div class="row" id="statusRow" style="display:none"><span class="label">Now</span><span id="status"></span></div>
   <div class="row"><span class="label">Coins</span><span class="coins">&#9670; <b id="coins">0</b></span></div>
 </div>
 
@@ -109,11 +112,11 @@ body.talking .hint{display:none}
 
 <div id="banner"><div class="name" id="bName"></div><div class="sub" id="bSub"></div></div>
 <div id="toast" class="panel"></div>
-<div id="dialog" class="panel" hidden role="dialog" aria-live="polite"><div class="dhead"><span id="dName"></span><span id="dRole"></span></div><p id="dText"></p><div id="dNext"></div></div>
-<button class="btn primary" id="talkBtn" hidden>Talk</button>
+<div id="dialog" class="panel" style="display:none" role="dialog" aria-live="polite"><div class="dhead"><span id="dName"></span><span id="dRole"></span></div><p id="dText"></p><div id="dNext"></div></div>
+<button class="btn primary" id="talkBtn" style="display:none">Talk</button>
 <div class="hint panel"><kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> talk &nbsp; <kbd>M</kbd> map</div>
 
-<div id="intro" class="overlay">
+<div id="intro" class="overlay" style="display:grid">
   <div class="card panel">
     <h1>Compass Realms</h1>
     <p>You start in Hearthvale, the walled city at the center of the world. A relic is hidden deep in each of the four lands around it. Bring all four back to the city fountain. The townsfolk know a thing or two, so stop and talk.</p>
@@ -123,12 +126,13 @@ body.talking .hint{display:none}
       <div><b>E</b><span>The Forest</span></div>
       <div><b>W</b><span>Fiery Wastelands</span></div>
     </div>
-    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Lava burns, ice slides, and deep water blocks the way. Your health refills inside the meadows and the city.</div>
+    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
     <button class="btn primary" id="startBtn">Start exploring</button>
+    <div class="build">Build 7 &middot; Oct 26</div>
   </div>
 </div>
 
-<div id="mapOverlay" class="overlay" hidden>
+<div id="mapOverlay" class="overlay" style="display:none">
   <div class="mapwrap panel">
     <canvas id="big" width="512" height="512" aria-label="World map"></canvas>
     <div class="legend" id="legend"></div>
@@ -136,29 +140,23 @@ body.talking .hint{display:none}
   </div>
 </div>
 
-<div id="winOverlay" class="overlay" hidden>
-  <div class="card panel">
-    <h1>The fountain is whole</h1>
-    <p id="winText"></p>
-    <button class="btn primary" id="againBtn">Play again</button>
-  </div>
-</div>
 
 <script>
 (() => {
 "use strict";
 // ---------- utilities ----------
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
-function hash(x,y,s){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,982451653);h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296;}
+function hash(x,y,s){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul((s+SEED*7919)|0,982451653);h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return (h>>>0)/4294967296;}
 function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);const a=hash(xi,yi,s),b=hash(xi+1,yi,s),c=hash(xi,yi+1,s),d=hash(xi+1,yi+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
 function fbm(x,y,s){let t=0,a=.5,f=1,n=0;for(let i=0;i<4;i++){t+=a*vnoise(x*f,y*f,s+i*101);n+=a;a*=.5;f*=2;}return t/n;}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
 
 // ---------- world constants ----------
-const T=32, S=16, W=768, H=768, CX=384, CY=384, CITY_R=32, SEED=7;
-const GRASS=0,ROAD=1,PLAZA=2,ROOF=3,FRONT=4,WALL=5,FOUNT=6,SAND=7,SHALLOW=8,DEEP=9,PALM=10,SNOW=11,ICE=12,ROCK=13,PINE=14,FGRASS=15,TREE=16,BUSH=17,FLOWERS=18,PATH=19,ASH=20,LAVA=21,OBSID=22,CRACK=23,BONES=24,OAK=25,MEADOW=26,NT=27;
-const SOLID=new Uint8Array(NT);[ROOF,FRONT,WALL,FOUNT,DEEP,PALM,ROCK,PINE,TREE,OBSID,OAK].forEach(i=>SOLID[i]=1);
-const SPEED=new Float32Array(NT).fill(1);SPEED[SHALLOW]=.55;SPEED[BUSH]=.7;SPEED[LAVA]=.6;SPEED[SNOW]=.88;SPEED[ROAD]=1.1;SPEED[PLAZA]=1.1;SPEED[PATH]=1.05;
+const T=32, S=16, W=768, H=768, CX=384, CY=384, CITY_R=32;
+let SEED=1;
+const GRASS=0,ROAD=1,PLAZA=2,ROOF=3,FRONT=4,WALL=5,FOUNT=6,SAND=7,SHALLOW=8,DEEP=9,PALM=10,SNOW=11,ICE=12,ROCK=13,PINE=14,FGRASS=15,TREE=16,BUSH=17,FLOWERS=18,PATH=19,ASH=20,LAVA=21,OBSID=22,CRACK=23,BONES=24,OAK=25,MEADOW=26,VENT=27,SHROOM=28,CAMP=29,NT=30;
+const SOLID=new Uint8Array(NT);[ROOF,FRONT,WALL,FOUNT,DEEP,PALM,ROCK,PINE,TREE,OBSID,OAK,CAMP].forEach(i=>SOLID[i]=1);
+const SPEED=new Float32Array(NT).fill(1);SPEED[SHALLOW]=.55;SPEED[BUSH]=.7;SPEED[LAVA]=.6;SPEED[SNOW]=.88;SPEED[ROAD]=1.1;SPEED[PLAZA]=1.1;SPEED[PATH]=1.05;SPEED[SHROOM]=.85;
 const R_CITY=0,R_PLAINS=1,R_N=2,R_S=3,R_E=4,R_W=5;
 const REGION_INFO={
   [R_CITY]:{name:"Hearthvale",sub:"The City"},
@@ -168,7 +166,7 @@ const REGION_INFO={
   [R_E]:{name:"Elderwood",sub:"East · The Forest",tint:[40,110,40]},
   [R_W]:{name:"Cinder Wastes",sub:"West · The Fiery Wastelands",tint:[255,80,20]},
 };
-const MINI_COL=["#5b8f3a","#9a9080","#b8ab90","#a84a32","#d8c9a8","#6f6a66","#6fc3d6","#e2cd8c","#4aaec0","#1d5e8a","#4b8f45","#e7eef5","#a6d6ea","#6c727e","#2d5b47","#3e6a2d","#24491d","#4b8a3a","#4a7a37","#87683f","#4a4244","#e8541c","#221d2b","#6a3a2a","#6a6262","#3f7a2c","#6a9a45"].map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
+const MINI_COL=["#5b8f3a","#9a9080","#b8ab90","#a84a32","#d8c9a8","#6f6a66","#6fc3d6","#e2cd8c","#4aaec0","#1d5e8a","#4b8f45","#e7eef5","#a6d6ea","#6c727e","#2d5b47","#3e6a2d","#24491d","#4b8a3a","#4a7a37","#87683f","#4a4244","#e8541c","#221d2b","#6a3a2a","#6a6262","#3f7a2c","#6a9a45","#7a2e1e","#9a5fc0","#ffa040"].map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
 
 const tiles=new Uint8Array(W*H), region=new Uint8Array(W*H), depthT=new Float32Array(W*H), varr=new Uint8Array(W*H);
 const idx=(x,y)=>y*W+x;
@@ -182,31 +180,42 @@ const RELICS=[
 const GATES={[R_N]:[CX,CY-CITY_R-1],[R_S]:[CX,CY+CITY_R+1],[R_E]:[CX+CITY_R+1,CY],[R_W]:[CX-CITY_R-1,CY]};
 
 // ---------- generation ----------
+const ridge=(x,y,s)=>1-Math.abs(fbm(x,y,s)*2-1);
 function biome(reg,x,y,t){
   const h=hash(x,y,reg*7+1);
+  const wx=x+(fbm(x*.02,y*.02,61)-.5)*70, wy=y+(fbm(x*.02,y*.02,67)-.5)*70;
   if(reg===R_S){
-    const e=fbm(x*.045,y*.045,11), s=t*.55+(.5-e)*2.2;
-    if(s<.12) return (h<.05&&t>.2)?PALM:SAND;
-    return s<.32?SHALLOW:DEEP;
+    const e=fbm(wx*.035,wy*.035,11), s=t*.8+(.5-e)*2.6;
+    const isl=fbm(wx*.05,wy*.05,13)-(t<.3?1:0);
+    if(isl>.68||s<.08) return h<.07?PALM:SAND;
+    if(isl>.6||s<.3) return SHALLOW;
+    return DEEP;
   }
   if(reg===R_N){
-    const e=fbm(x*.07,y*.07,21), r=e+t*.25;
-    if(r>.78) return ROCK;
-    if(t>.15&&fbm(x*.09,y*.09,23)>.64) return ICE;
-    if(t<.6&&h<.14*(1-t)+.03) return PINE;
+    const rg=ridge(wx*.03,wy*.03,21), e=fbm(wx*.06,wy*.06,22);
+    if((rg>.9-t*.08&&fbm(x*.08,y*.08,25)>.42)||e+t*.3>.9) return ROCK;
+    if(fbm(wx*.04,wy*.04,23)>.65-t*.05) return ICE;
+    if(fbm(wx*.05,wy*.05,24)>.56&&h<.55*(1-t*.6)) return PINE;
+    if(h<.025) return PINE;
+    if(h<.04+t*.03) return ROCK;
     return SNOW;
   }
   if(reg===R_E){
-    const e=fbm(x*.08,y*.08,31), d=e+t*.15;
-    if(d>.62) return h<.85?TREE:BUSH;
-    if(d>.5) return h<.35?TREE:h<.6?BUSH:FGRASS;
-    return h<.05?FLOWERS:h<.09?BUSH:FGRASS;
+    if(fbm(wx*.06,wy*.06,33)>.71) return SHALLOW;
+    if(fbm(wx*.045,wy*.045,34)>.67) return h<.12?FLOWERS:h<.16?BUSH:FGRASS;
+    if(t>.15&&fbm(x*.07,y*.07,35)>.62&&h<.22) return SHROOM;
+    const d=fbm(wx*.05,wy*.05,31)*.7+fbm(x*.15,y*.15,32)*.3+t*.12;
+    if(d>.6) return h<.88?TREE:BUSH;
+    if(d>.5) return h<.4?TREE:h<.65?BUSH:FGRASS;
+    return h<.05?FLOWERS:h<.1?BUSH:h<.14?TREE:FGRASS;
   }
   // west
-  const riv=Math.abs(fbm(x*.035,y*.035,43)-.5), e=fbm(x*.08,y*.08,41);
-  if(riv<.012+t*.02) return LAVA;
-  if(e>.66-t*.06) return OBSID;
-  return h<.12?CRACK:h<.135?BONES:ASH;
+  const r1=ridge(wx*.025,wy*.025,43), r2=ridge(wx*.055,wy*.055,44);
+  if(r1>.976-t*.015||(r2>.984&&t>.35)) return LAVA;
+  if(fbm(wx*.04,wy*.04,45)>.75-t*.03) return LAVA;
+  if(t>.15&&h>.991-t*.006) return VENT;
+  if(fbm(wx*.07,wy*.07,41)>.66-t*.06||h<.02) return OBSID;
+  return h<.13?CRACK:h<.145?BONES:ASH;
 }
 const EDGE={[R_N]:ROCK,[R_S]:DEEP,[R_E]:TREE,[R_W]:OBSID};
 
@@ -251,82 +260,112 @@ function buildCity(rng){
     }
   }
 }
-function pathTile(reg,cur){
-  switch(reg){
-    case R_PLAINS: case R_E: return PATH;
-    case R_S: return cur===DEEP?SHALLOW:cur===PALM?SAND:cur;
-    case R_N: return (cur===ROCK||cur===PINE)?SNOW:cur;
-    case R_W: return cur===OBSID?ASH:cur===LAVA?CRACK:cur;
-  }
-  return cur;
+// Opens the fewest, smallest gaps needed so every relic can be reached on foot.
+const isEdge=i=>{const x=i%W,y=(i/W)|0;return x<3||y<3||x>=W-3||y>=H-3;};
+function stepCost(i){
+  if(isEdge(i))return 0;
+  const t=tiles[i];
+  if(region[i]===R_CITY)return SOLID[t]?0:1;
+  if(t===CAMP)return 0;
+  if(t===DEEP)return 30;
+  if(SOLID[t])return 40;
+  if(t===LAVA)return 9;
+  if(t===SHALLOW||t===BUSH)return 2;
+  return 1;
 }
-function brush(cx,cy,r=1){
-  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
-    const x=cx+dx,y=cy+dy;if(x<3||y<3||x>=W-3||y>=H-3)continue;
-    const i=idx(x,y);if(region[i]===R_CITY)continue;
-    tiles[i]=pathTile(region[i],tiles[i]);
-  }
+function opened(i){
+  const t=tiles[i],reg=region[i];
+  if(t===DEEP)return SHALLOW;
+  if(t===PALM)return SAND;
+  if(t===LAVA)return CRACK;
+  if(!SOLID[t])return t;
+  return reg===R_N?SNOW:reg===R_E?FGRASS:reg===R_W?ASH:reg===R_S?SAND:GRASS;
 }
-function carve(x0,y0,x1,y1,rng){
-  let x=x0,y=y0,steps=0;brush(x,y);
-  while((Math.abs(x-x1)>1||Math.abs(y-y1)>1)&&steps<60000){
-    steps++;
-    const r=rng(),ddx=x1-x,ddy=y1-y,majX=Math.abs(ddx)>Math.abs(ddy);
-    let nx=x,ny=y;
-    if(r<.55){ if(majX) nx+=Math.sign(ddx); else ny+=Math.sign(ddy); }
-    else if(r<.8){ if(majX) ny+=Math.sign(ddy)||(rng()<.5?1:-1); else nx+=Math.sign(ddx)||(rng()<.5?1:-1); }
-    else { const k=rng()*4|0; nx+=[1,-1,0,0][k]; ny+=[0,0,1,-1][k]; }
-    nx=clamp(nx,5,W-6);ny=clamp(ny,5,H-6);
-    if(region[idx(nx,ny)]===R_CITY) continue;
-    x=nx;y=ny;brush(x,y);
+const dDist=new Int32Array(W*H),dPrev=new Int32Array(W*H);
+function openRoute(start,target){
+  const C=41,dist=dDist.fill(0x7fffffff),prev=dPrev.fill(-1),B=Array.from({length:C},()=>[]);
+  dist[start]=0;B[0].push(start);let d=0,empty=0;
+  while(empty<C){
+    const b=B[d%C];if(!b.length){empty++;d++;continue;}empty=0;
+    const v=b.pop();if(dist[v]!==d)continue;if(v===target)break;
+    const x=v%W,y=(v/W)|0;
+    for(let k=0;k<4;k++){
+      const nx=x+(k===0?1:k===1?-1:0),ny=y+(k===2?1:k===3?-1:0);
+      if(nx<0||ny<0||nx>=W||ny>=H)continue;
+      const u=idx(nx,ny),c=stepCost(u);if(!c)continue;
+      const nd=d+c;if(nd<dist[u]){dist[u]=nd;prev[u]=v;B[nd%C].push(u);}
+    }
   }
+  const route=[];let v=target;while(v>=0){route.push(v);v=prev[v];}
+  let gaps=0;
+  for(let k=0;k<route.length;k++){
+    const i=route[k],t=tiles[i];
+    if(t===LAVA){let e=k;while(e<route.length&&tiles[route[e]]===LAVA)e++;if(e-k>2)for(let j=k;j<e;j++){tiles[route[j]]=CRACK;gaps++;}k=e-1;continue;}
+    if(SOLID[t]||t===DEEP){tiles[i]=opened(i);gaps++;}
+  }
+  return gaps;
+}
+// Each gate gets a guaranteed way out to its own land's relic.
+function connectRelics(){let g=0;for(const r of RELICS){const [gx,gy]=GATES[r.reg];g+=openRoute(idx(gx,gy),idx(r.tx,r.ty));}return g;}
+function clearGates(){
+  for(const k in GATES){const [gx,gy]=GATES[k],ox=Math.sign(gx-CX),oy=Math.sign(gy-CY);
+    for(let st=0;st<9;st++)for(let w=-3;w<=3;w++){
+      const x=gx+ox*st+(oy?w:0),y=gy+oy*st+(ox?w:0),i=idx(x,y);
+      if(region[i]===R_CITY)continue;
+      tiles[i]=region[i]===R_PLAINS?(hash(x,y,3)<.08?MEADOW:GRASS):opened(i);
+      if(tiles[i]===VENT||tiles[i]===SHROOM)tiles[i]=opened(i)===tiles[i]?(region[i]===R_W?ASH:FGRASS):tiles[i];
+    }}
+}
+let reach=new Uint8Array(W*H);
+function computeReach(){
+  reach.fill(0);const q=[idx(CX,CY+3)];reach[q[0]]=1;
+  while(q.length){const i=q.pop(),x=i%W,y=(i/W)|0;
+    for(let k=0;k<4;k++){const nx=x+(k===0?1:k===1?-1:0),ny=y+(k===2?1:k===3?-1:0);if(nx<0||ny<0||nx>=W||ny>=H)continue;const j=idx(nx,ny);if(reach[j]||SOLID[tiles[j]])continue;reach[j]=1;q.push(j);}}
 }
 
-let coins=[];
+let coins=[],campfires=[],mobs=[];
 function generate(){
+  campfires=[];mobs=[];
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const i=idx(x,y),dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy),Q=Math.PI/4;
-    let a=Math.atan2(dy,dx)+(fbm(x*.025,y*.025,5)-.5)*1.1;
-    if(a>Math.PI)a-=2*Math.PI; if(a<-Math.PI)a+=2*Math.PI;
+    let a=Math.atan2(dy,dx)+(fbm(x*.012,y*.012,5)-.5)*2.2+(fbm(x*.04,y*.04,6)-.5)*.6;
+    while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI;
     let reg=(a>-Q&&a<=Q)?R_E:(a>Q&&a<=3*Q)?R_S:(a>-3*Q&&a<=-Q)?R_N:R_W;
-    const pr=CITY_R*1.45+10+fbm(x*.06,y*.06,9)*12, t=clamp((d-pr)/120,0,1);
+    const pr=CITY_R*1.45+10+fbm(x*.06,y*.06,9)*14, t=clamp((d-pr)/120+(fbm(x*.03,y*.03,7)-.5)*.35,0,1);
     let tile;
-    if(d<pr){reg=R_PLAINS;const h=hash(x,y,3);tile=h<.02?OAK:h<.07?MEADOW:GRASS;}
+    if(d<pr){reg=R_PLAINS;const h=hash(x,y,3);tile=(fbm(x*.08,y*.08,8)>.6&&h<.35)||h<.01?OAK:h<.07?MEADOW:GRASS;}
     else tile=biome(reg,x,y,t);
     if(x<3||y<3||x>=W-3||y>=H-3) tile=EDGE[reg]??ROCK;
     tiles[i]=tile;region[i]=reg;depthT[i]=t;varr[i]=hash(x,y,99)*256|0;
   }
-  const rng=mulberry32(SEED*977);
+  const rng=mulberry32(SEED*977+13);
   buildCity(rng);
   for(const r of RELICS){
-    const off=(rng()-.5)*80, dist=322+rng()*14;
-    let rx=Math.round(CX+Math.cos(r.ang)*dist), ry=Math.round(CY+Math.sin(r.ang)*dist);
-    if(r.reg===R_N||r.reg===R_S) rx+=Math.round(off); else ry+=Math.round(off);
-    r.tx=clamp(rx,10,W-11);r.ty=clamp(ry,10,H-11);r.ph=rng()*6;
-    const [gx,gy]=GATES[r.reg];
-    carve(gx,gy,r.tx,r.ty,rng);
-    // side trails ending in coin caches
-    r.caches=[];
-    for(let k=0;k<4;k++){
-      const ang=r.ang+(k%2?1:-1)*(k<2?.35+rng()*.25:.15+rng()*.15), dd=k<2?90+rng()*130:230+rng()*70;
-      const ex=clamp(Math.round(CX+Math.cos(ang)*dd),8,W-9), ey=clamp(Math.round(CY+Math.sin(ang)*dd),8,H-9);
-      carve(gx,gy,ex,ey,rng);r.caches.push([ex,ey]);
-    }
-    // clearing around the relic
+    const ang=r.ang+(rng()-.5)*.8, dist=285+rng()*55;
+    r.tx=clamp(Math.round(CX+Math.cos(ang)*dist),10,W-11);r.ty=clamp(Math.round(CY+Math.sin(ang)*dist),10,H-11);r.ph=rng()*6;
     for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){
       const x=r.tx+dx,y=r.ty+dy,i=idx(x,y),dd=Math.hypot(dx,dy);
       if(r.reg===R_S){ if(dd<=3) tiles[i]=SAND; else if(dd<=5&&tiles[i]===DEEP) tiles[i]=SHALLOW; }
-      else if(dd<=3){ tiles[i]=r.reg===R_N?SNOW:r.reg===R_E?FLOWERS:ASH; }
+      else if(dd<=2.5){ tiles[i]=r.reg===R_N?SNOW:r.reg===R_E?FLOWERS:ASH; }
     }
   }
+  for(const r of RELICS){const [ox,oy]=r.reg===R_S?[2,2]:[2,1],i=idx(r.tx+ox,r.ty+oy);tiles[i]=CAMP;varr[i]={[R_N]:0,[R_E]:1,[R_S]:2,[R_W]:3}[r.reg];campfires.push({x:r.tx+ox,y:r.ty+oy});}
+  clearGates();
+  const gaps=connectRelics();
+  computeReach();
+  placeCamps(rng);
+  spawnMobs(rng);
+  return gaps;
 }
 function placeCoins(){
-  const rng=mulberry32(SEED*31337);coins=[];
-  const ok=(x,y)=>{const i=idx(x,y);return !SOLID[tiles[i]]&&tiles[i]!==LAVA&&region[i]!==R_CITY;};
-  for(const r of RELICS)for(const [ex,ey] of r.caches){
-    let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(n<5&&ok(ex+dx,ey+dy)&&(dx||dy||1)){coins.push({x:(ex+dx+.5)*T,y:(ey+dy+.5)*T,taken:false});n++;}}
-  }
-  let tries=0;
+  const rng=mulberry32(SEED*31337+7);coins=[];
+  const ok=(x,y)=>{if(x<3||y<3||x>=W-3||y>=H-3)return false;const i=idx(x,y);return reach[i]&&!SOLID[tiles[i]]&&tiles[i]!==LAVA&&region[i]!==R_CITY;};
+  // hoards tucked away in the deep wilds
+  let hoards=0,tries=0;
+  while(hoards<20&&tries<200000){tries++;const x=4+(rng()*(W-8)|0),y=4+(rng()*(H-8)|0);
+    if(!ok(x,y)||depthT[idx(x,y)]<.35)continue;hoards++;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(ok(x+dx,y+dy)&&rng()<.75)coins.push({x:(x+dx+.5)*T,y:(y+dy+.5)*T,taken:false});}
+  tries=0;
   while(coins.length<1600&&tries<300000){tries++;const x=4+(rng()*(W-8)|0),y=4+(rng()*(H-8)|0);if(ok(x,y))coins.push({x:(x+.5)*T,y:(y+.5)*T,taken:false});}
 }
 
@@ -377,6 +416,9 @@ SPR[PATH]=V(4,(g,r)=>{fill(g,"#87683f");speck(g,r,["#795c37","#977650","#6d5232"
 SPR[ASH]=V(4,ashBase);
 SPR[OBSID]=V(3,(g,r)=>{ashBase(g,r);for(let k=0;k<3;k++){const bx=2+k*4+(r()*2|0),h=7+(r()*6|0),w=2+(r()*2|0);for(let i=0;i<h;i++){const ww=Math.max(1,Math.round(w*(i+1)/h));p(g,bx-(ww>>1),15-h+i+1,"#221d2b",ww+1,1);}p(g,bx,16-h,"#8a6fd1",1,2);p(g,bx-1,17-h+2,"#3a3150",1,3);}});
 SPR[CRACK]=V(4,(g,r)=>{ashBase(g,r);let y=4+r()*8|0;for(let x=0;x<16;x++){p(g,x,y,"#ff7a2a");if(r()<.3)p(g,x,y,"#ffd27a");const q=r();y=clamp(y+(q<.3?-1:q>.7?1:0),1,14);}});
+SPR[VENT]=V(3,(g,r)=>{ashBase(g,r);disc(g,8,8,5,"#2a2224");disc(g,8,8,4,"#5a1e10");disc(g,8,8,2,"#c24a12");p(g,7,7,"#ffb347",2,2);});
+SPR[SHROOM]=V(3,(g,r)=>{fgBase(g,r);for(let k=0;k<3;k++){const x=2+(r()*10|0),y=3+(r()*9|0);p(g,x+1,y+2,"#e8e0cf",1,2);p(g,x,y,"#8a3fb0",3,2);p(g,x-1,y+1,"#8a3fb0",5,1);p(g,x,y,"#c9a0f0");p(g,x+2,y+1,"#f4ead2");}});
+SPR[CAMP]=[snowBase,fgBase,sandBase,ashBase].map((b,k)=>mk((g,r)=>{b(g,r);const st=["#7d786f","#9a958e","#6c6862"];for(let a=0;a<8;a++){const ang=a/8*Math.PI*2;p(g,7+Math.round(Math.cos(ang)*5),8+Math.round(Math.sin(ang)*4),st[a%3],2,2);}p(g,4,9,"#6b4a2e",8,2);p(g,6,7,"#5a3a22",4,5);p(g,6,9,"#3a2a1c",4,1);},700+k));
 SPR[BONES]=V(2,(g,r)=>{ashBase(g,r);p(g,4,8,"#e8e0cf",7,1);p(g,3,7,"#e8e0cf",2,1);p(g,3,9,"#e8e0cf",2,1);p(g,10,7,"#e8e0cf",2,1);p(g,10,9,"#e8e0cf",2,1);p(g,6,4,"#d9cfba",3,3);p(g,7,5,"#4a4244");});
 
 const FOUNT_SPR=[0,1].map(f=>{const c=document.createElement("canvas");c.width=c.height=48;const g=c.getContext("2d");
@@ -400,12 +442,12 @@ const bigCv=document.getElementById("big"),bctx=bigCv.getContext("2d");
 function sizeMini(){const s=miniCv.getBoundingClientRect().width||150;miniCv.width=Math.round(s*dpr);miniCv.height=Math.round(s*dpr);}
 
 // ---------- game state ----------
-const player={x:0,y:0,vx:0,vy:0,hp:100,face:0,anim:0,moving:false};
+const player={x:0,y:0,vx:0,vy:0,hp:100,face:0,anim:0,moving:false,inv:0,ventHit:-1};
 const cam={x:0,y:0};
-const state={playing:false,mapOpen:false,won:false,elapsed:0,coins:0,region:-1,pendingRegion:-1,pendingT:0,hurt:0};
+const state={screen:"intro",playing:false,mapOpen:false,won:false,elapsed:0,coins:0,region:-1,pendingRegion:-1,pendingT:0,hurt:0};
 function resetGame(){
   player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.hp=100;player.face=0;
-  RELICS.forEach(r=>r.state=0);placeCoins();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
+  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
   resetMini();reveal(CX,CY,CITY_R+4);updateHud();initNPCs();if(state.talking)closeDialog();state.near=null;
   cam.x=player.x-vw/2;cam.y=player.y-vh/2;
 }
@@ -419,7 +461,7 @@ window.addEventListener("keydown",e=>{
   if(k==="escape"&&state.talking){closeDialog();return;}
   if(k==="m"&&state.playing&&!state.talking){toggleMap();return;}
   if(k==="escape"&&state.mapOpen){toggleMap(false);return;}
-  if(k==="enter"&&!state.playing&&!document.getElementById("intro").hidden){startGame();return;}
+  if(k==="enter"&&state.screen==="intro"){startGame();return;}
   keys.add(k);
 });
 window.addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
@@ -443,13 +485,165 @@ function banner(reg){const info=REGION_INFO[reg];document.getElementById("bName"
 const slotsEl=document.getElementById("slots");
 RELICS.forEach(r=>{const d=document.createElement("div");d.className="slot";d.style.setProperty("--c",r.color);d.title=r.name;slotsEl.appendChild(d);r.el=d;});
 let lastHud="";
+let lastStatus="";
 function updateHud(){
   document.getElementById("hpFill").style.width=Math.max(0,player.hp)+"%";
+  const st=[state.burning&&"Burning",state.cold&&"Freezing",state.poison>0&&"Poisoned",state.warm&&player.hp<100&&"Warming up"].filter(Boolean).join(", ");
+  if(st!==lastStatus){lastStatus=st;document.getElementById("status").textContent=st;document.getElementById("statusRow").style.display=st?"flex":"none";}
   const key=state.coins+"|"+RELICS.map(r=>r.state).join("");
   if(key===lastHud)return;lastHud=key;
   document.getElementById("coins").textContent=state.coins;
   RELICS.forEach(r=>{r.el.className="slot"+(r.state===1?" carried":r.state===2?" placed":"");r.el.title=r.name+(r.state===0?" (lost, "+r.dir+")":r.state===1?" (carried)":" (at the fountain)");});
 }
+
+// ---------- dangers ----------
+const WOLF=0,SPIDER=1,IMP=2,SHARK=3,JELLY=4;
+const MOB={
+  [WOLF]:{chase:178,wander:55,aggro:240,leash:480,reach:22,dmg:9,cd:1.1,tip:"wolf"},
+  [SPIDER]:{chase:132,wander:40,aggro:180,leash:320,reach:22,dmg:9,cd:1.2,tip:"spider"},
+  [IMP]:{chase:150,wander:60,aggro:210,leash:380,reach:20,dmg:13,cd:1.0,tip:"imp"},
+  [SHARK]:{chase:170,wander:70,aggro:230,leash:420,reach:22,dmg:18,cd:1.3,tip:"shark"},
+  [JELLY]:{chase:0,wander:16,aggro:0,leash:120,reach:18,dmg:8,cd:1.5,tip:"jelly"},
+};
+const TIPS={
+  cold:"The cold bites. Warm up at a campfire or head back to the meadows.",
+  poison:"Poisoned! Purple mushrooms release spores. It wears off in a few seconds.",
+  vent:"A fire vent erupted under you. Step away when you see smoke.",
+  lava:"Lava burns. Cross it fast or go around.",
+  wolf:"Frost wolf! Hold Shift to run. They give up at campfires.",
+  spider:"A giant spider bit you. The venom stings for a few seconds.",
+  imp:"An ember imp! They float right over the lava.",
+  shark:"Shark! Get out of the water. They can't follow you onto land.",
+  jelly:"Jellyfish sting. They drift slowly, so steer around them.",
+};
+function tip(k){if(!state.tips||state.tips.has(k))return;state.tips.add(k);toast(TIPS[k],4200);}
+function hurtPlayer(d,sx,sy,cause){
+  if(player.inv>0)return false;
+  player.hp-=d;player.inv=.6;state.flash=.3;
+  if(sx!==undefined){const dx=player.x-sx,dy=player.y-sy,m=Math.hypot(dx,dy)||1;player.vx+=dx/m*320;player.vy+=dy/m*320;}
+  tip(cause);return true;
+}
+function ventState(i){const h1=hash(i%W,(i/W)|0,555),P=4+h1*3,tt=time+h1*20,f=(tt%P)/P;return{warn:f>.6&&f<.8,erupt:f>=.8,f,id:i*1000+Math.floor(tt/P)};}
+function mobTile(kind,px,py){const i=tileAt(px,py);if(i<0)return false;const t=tiles[i],r=region[i];
+  if(r===R_CITY||r===R_PLAINS)return false;
+  if(kind===SHARK||kind===JELLY)return t===SHALLOW||t===DEEP;
+  if(SOLID[t]||t===SHALLOW||t===DEEP)return false;
+  if(t===LAVA)return kind===IMP;
+  return true;}
+function mobFree(k,x,y){return mobTile(k,x-6,y-4)&&mobTile(k,x+6,y-4)&&mobTile(k,x-6,y+3)&&mobTile(k,x+6,y+3);}
+function mobMove(m,tx,ty,spd,dt){
+  const dx=tx-m.x,dy=ty-m.y,d=Math.hypot(dx,dy);if(d<3||spd<=0){m.moving=false;return true;}
+  const st=Math.min(d,spd*dt),vx=dx/d*st,vy=dy/d*st;let moved=false;
+  if(mobFree(m.kind,m.x+vx,m.y)){m.x+=vx;moved=true;}
+  if(mobFree(m.kind,m.x,m.y+vy)){m.y+=vy;moved=true;}
+  if(Math.abs(vx)>.05)m.face=vx<0?-1:1;
+  m.moving=moved;return moved;
+}
+function mobTarget(m){for(let k=0;k<8;k++){const tx=m.hx+(Math.random()*2-1)*5*T,ty=m.hy+(Math.random()*2-1)*5*T;if(mobFree(m.kind,tx,ty)){m.tx=tx;m.ty=ty;return;}}m.tx=m.hx;m.ty=m.hy;}
+function updateMobs(dt){
+  const pi=tileAt(player.x,player.y),pWater=pi>=0&&(tiles[pi]===SHALLOW||tiles[pi]===DEEP);
+  for(const m of mobs){
+    const dxp=player.x-m.x,dyp=player.y-m.y;
+    if(Math.abs(dxp)>1200||Math.abs(dyp)>900){m.chasing=false;continue;}
+    const D=MOB[m.kind],dp=Math.hypot(dxp,dyp),dh=Math.hypot(m.x-m.hx,m.y-m.hy);
+    m.cd=Math.max(0,m.cd-dt);m.anim+=dt;
+    m.chasing=D.aggro>0&&state.playing&&!state.safe&&!state.talking&&dp<(m.chasing?D.aggro*1.6:D.aggro)&&dh<D.leash&&(m.kind!==SHARK||pWater);
+    if(m.chasing){mobMove(m,player.x,player.y,D.chase,dt);}
+    else if(m.wait>0){m.wait-=dt;m.moving=false;}
+    else if(!mobMove(m,m.tx,m.ty,D.wander,dt)||Math.hypot(m.tx-m.x,m.ty-m.y)<4){m.wait=.8+Math.random()*2.5;mobTarget(m);}
+    if(state.playing&&dp<D.reach&&m.cd===0&&(m.kind!==SHARK||pWater)){
+      if(hurtPlayer(D.dmg,m.x,m.y,D.tip)){m.cd=D.cd;if(m.kind===SPIDER)state.poison=Math.max(state.poison,2.5);}
+    }
+  }
+}
+function spawnMobs(rng){
+  mobs=[];
+  const plan=[[WOLF,R_N,16,3],[SPIDER,R_E,46,1],[IMP,R_W,46,1],[SHARK,R_S,32,1],[JELLY,R_S,64,1]];
+  for(const [kind,reg,groups,size] of plan){
+    let made=0,tries=0;
+    while(made<groups&&tries<60000){tries++;
+      const x=6+(rng()*(W-12)|0),y=6+(rng()*(H-12)|0),i=idx(x,y);
+      if(region[i]!==reg||depthT[i]<.18||rng()>depthT[i]+.25)continue;
+      const water=kind===SHARK||kind===JELLY;
+      if(water?!(tiles[i]===SHALLOW||tiles[i]===DEEP):!reach[i])continue;
+      const px=(x+.5)*T,py=(y+.5)*T;if(!mobFree(kind,px,py))continue;
+      if(campfires.some(c=>Math.abs(c.x-x)<8&&Math.abs(c.y-y)<8))continue;
+      made++;
+      for(let k=0;k<size;k++){const ox=k?(rng()-.5)*40:0,oy=k?(rng()-.5)*40:0,sx=mobFree(kind,px+ox,py+oy)?px+ox:px,sy=mobFree(kind,px+ox,py+oy)?py+oy:py;
+        const m={kind,x:sx,y:sy,hx:sx,hy:sy,tx:sx,ty:sy,wait:rng()*3,cd:0,anim:rng()*10,face:1,moving:false,chasing:false};mobs.push(m);}
+    }
+  }
+}
+function placeCamps(rng){
+  const want={[R_N]:16,[R_E]:8,[R_S]:8,[R_W]:8},bg={[R_N]:0,[R_E]:1,[R_S]:2,[R_W]:3};
+  const ground=new Set([SNOW,FGRASS,FLOWERS,SAND,ASH,CRACK,BONES]);
+  for(const reg of [R_N,R_E,R_S,R_W]){
+    let made=0,tries=0;
+    while(made<want[reg]&&tries<80000){tries++;
+      const x=8+(rng()*(W-16)|0),y=8+(rng()*(H-16)|0),i=idx(x,y);
+      if(region[i]!==reg||depthT[i]<.2||!reach[i]||!ground.has(tiles[i]))continue;
+      let ok=true;for(let dy=-1;dy<=1&&ok;dy++)for(let dx=-1;dx<=1;dx++){const t=tiles[idx(x+dx,y+dy)];if(SOLID[t]||t===LAVA||t===DEEP||t===VENT||t===SHROOM){ok=false;break;}}
+      if(!ok||campfires.some(c=>Math.hypot(c.x-x,c.y-y)<30))continue;
+      tiles[i]=CAMP;varr[i]=bg[reg];campfires.push({x,y});made++;
+    }
+  }
+}
+
+// creature drawing
+function drawWolf(sx,sy,m){
+  const P=2,ox=sx-8*P,oy=sy-10*P,f=m.face;
+  ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(sx,sy+1,13,4,0,0,Math.PI*2);ctx.fill();
+  const r=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(ox+(f>0?x:16-x-w)*P,oy+y*P,w*P,h*P);};
+  const st=m.moving&&Math.sin(m.anim*14)>0;
+  r(4,7,1,st?2:3,"#7d8794");r(6,7,1,st?3:2,"#7d8794");r(9,7,1,st?2:3,"#7d8794");r(11,7,1,st?3:2,"#7d8794");
+  r(3,3,9,4,"#b9c2cc");r(3,3,9,1,"#8d97a4");r(4,6,7,1,"#e6ecf2");
+  r(0,2,3,2,"#b9c2cc");r(0,1,1,1,"#e6ecf2");
+  r(11,1,4,4,"#c9d1da");r(14,3,2,2,"#c9d1da");r(15,3,1,1,"#1d1a20");r(12,0,1,2,"#8d97a4");r(14,0,1,2,"#8d97a4");
+  r(13,2,1,1,m.chasing?"#e0533f":"#1d1a20");
+  if(m.chasing){r(14,5,2,1,"#f4f8fb");}
+}
+function drawSpider(sx,sy,m){
+  const y=sy-8;
+  ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.ellipse(sx,sy+1,14,4,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#1e1a22";ctx.lineWidth=2;
+  for(let k=0;k<4;k++)for(const s of [-1,1]){const w=m.moving?Math.sin(m.anim*16+k*1.7+(s>0?1.5:0))*3:0,ky=y-4+k*3;
+    ctx.beginPath();ctx.moveTo(sx+s*4,ky);ctx.lineTo(sx+s*11,ky-5+w);ctx.lineTo(sx+s*15,ky+5+w);ctx.stroke();}
+  ctx.fillStyle="#1e1a22";ctx.beginPath();ctx.ellipse(sx,y+1,8,7,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(sx,y-7,5,4,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="#3a3044";ctx.fillRect(sx-4,y-3,3,2);
+  ctx.fillStyle="#c8384a";ctx.fillRect(sx-1,y-1,2,5);ctx.fillRect(sx-2,y+1,4,1);
+  ctx.fillStyle=m.chasing?"#ff4a4a":"#a8303a";[-3,-1,1,3].forEach(e=>ctx.fillRect(sx+e-.5,y-9,1.5,1.5));
+}
+function drawImp(sx,sy,m){
+  const bob=Math.sin(m.anim*6)*3,y=sy-14+bob;
+  ctx.fillStyle="rgba(0,0,0,.25)";ctx.beginPath();ctx.ellipse(sx,sy+1,8,3,0,0,Math.PI*2);ctx.fill();
+  glow(sx,y,26,"255,120,30",.45);
+  const fl=Math.floor(time*12+m.anim)%3;
+  ctx.fillStyle="#d24617";ctx.fillRect(sx-7,y-6,14,13);ctx.fillRect(sx-5,y-10-fl,10,5);ctx.fillRect(sx-2,y-14+fl,4,5);
+  ctx.fillStyle="#ff8f2e";ctx.fillRect(sx-5,y-4,10,10);ctx.fillRect(sx-3,y-8,6,4);
+  ctx.fillStyle="#ffd65e";ctx.fillRect(sx-3,y,6,5);
+  ctx.fillStyle="#6a1e10";ctx.fillRect(sx-7,y-9,2,4);ctx.fillRect(sx+5,y-9,2,4);
+  ctx.fillStyle="#1d1a20";ctx.fillRect(sx-4,y-3,2,2);ctx.fillRect(sx+2,y-3,2,2);
+  if(m.chasing){ctx.fillRect(sx-2,y+2,4,1);}
+}
+function drawShark(sx,sy,m){
+  const f=m.face,sp=m.chasing?1:.5;
+  ctx.fillStyle="rgba(8,30,50,.35)";ctx.beginPath();ctx.ellipse(sx,sy,24,8,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="rgba(230,250,255,.75)";
+  for(let k=0;k<3;k++){const ph=(time*2*sp+k/3)%1;ctx.fillRect(Math.round(sx-f*(8+ph*18)),Math.round(sy+2-ph*2+(k%2?3:-3)*ph),Math.max(1,Math.round(5*(1-ph))),2);}
+  ctx.fillStyle="#3d4852";ctx.beginPath();ctx.moveTo(sx-f*7,sy+2);ctx.lineTo(sx+f*2,sy-14);ctx.lineTo(sx+f*7,sy+2);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#6a7884";ctx.beginPath();ctx.moveTo(sx-f*7,sy+2);ctx.lineTo(sx+f*2,sy-14);ctx.lineTo(sx-f*1,sy+2);ctx.closePath();ctx.fill();
+  ctx.fillStyle="#d8f0f6";ctx.fillRect(sx-9,sy+2,18,2);
+}
+function drawJelly(sx,sy,m){
+  const s=1+Math.sin(m.anim*3)*.12,y=sy-10-Math.sin(m.anim*3)*2;
+  glow(sx,y,22,"240,140,210",.25);
+  ctx.strokeStyle="rgba(240,170,220,.8)";ctx.lineWidth=1.5;
+  for(let k=0;k<4;k++){const bx=sx-5+k*3.4;ctx.beginPath();ctx.moveTo(bx,y+3);for(let j=1;j<=4;j++)ctx.lineTo(bx+Math.sin(m.anim*4+k+j)*2,y+3+j*3.5);ctx.stroke();}
+  ctx.fillStyle="rgba(236,120,196,.88)";ctx.beginPath();ctx.ellipse(sx,y,9*s,7/s,0,Math.PI,0);ctx.fill();ctx.fillRect(sx-9*s,y-1,18*s,4);
+  ctx.fillStyle="rgba(255,225,245,.9)";ctx.fillRect(sx-4,y-4,3,2);
+}
+const MOB_DRAW=[drawWolf,drawSpider,drawImp,drawShark,drawJelly];
 
 // ---------- update ----------
 function update(dt){
@@ -473,9 +667,21 @@ function update(dt){
   {let best=null,bd=48;for(const n of npcs){const d=Math.hypot(n.x-player.x,n.y-player.y);if(d<bd){bd=d;best=n;}}state.near=best;}
   const i=tileAt(player.x,player.y),reg=i>=0?region[i]:R_PLAINS,tnow=i>=0?tiles[i]:GRASS;
   state.hurt=0;
-  if(tnow===LAVA){player.hp-=30*dt;state.hurt=1;}
+  const depth=i>=0?depthT[i]:0;
+  let warm=false;for(const c of campfires){if(Math.abs((c.x+.5)*T-player.x)<2.8*T&&Math.abs((c.y+.5)*T-player.y)<2.8*T){warm=true;break;}}
+  state.warm=warm;state.safe=reg===R_CITY||reg===R_PLAINS||warm;
+  player.inv=Math.max(0,player.inv-dt);state.flash=Math.max(0,state.flash-dt);
+  state.burning=tnow===LAVA;
+  if(tnow===LAVA){player.hp-=30*dt;state.hurt=1;tip("lava");}
+  state.cold=reg===R_N&&depth>.5&&!warm;
+  if(state.cold){player.hp-=(.8+4.4*(depth-.5))*dt;tip("cold");}
+  if(tnow===SHROOM){if(state.poison<=0)tip("poison");state.poison=3;}
+  if(state.poison>0){state.poison-=dt;player.hp-=5*dt;}
+  if(tnow===VENT){const v=ventState(i);if(v.erupt&&player.ventHit!==v.id){player.ventHit=v.id;player.inv=0;hurtPlayer(20,undefined,undefined,"vent");}}
+  updateMobs(dt);
   if(reg===R_CITY||reg===R_PLAINS)player.hp=Math.min(100,player.hp+14*dt);
-  if(player.hp<=0){player.hp=100;player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;toast("You collapsed and woke up back in Hearthvale.");}
+  if(warm)player.hp=Math.min(100,player.hp+12*dt);
+  if(player.hp<=0){const lost=Math.floor(state.coins*.1);state.coins-=lost;player.hp=100;player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.inv=1.5;state.poison=0;for(const m of mobs)m.chasing=false;toast("You collapsed and woke up back in Hearthvale."+(lost?" You dropped "+lost+" coins.":""),4200);}
 
   for(const c of coins){if(!c.taken&&Math.abs(c.x-player.x)<18&&Math.abs(c.y-player.y+4)<18){c.taken=true;state.coins++;}}
   for(const r of RELICS){if(r.state===0&&Math.hypot((r.tx+.5)*T-player.x,(r.ty+.5)*T-player.y)<24){r.state=1;toast("You found the "+r.name+". Take it back to the fountain in Hearthvale.",4200);}}
@@ -535,24 +741,24 @@ const NPC_DEFS=[
    return[pick(["The relics will not fetch themselves. I checked. Twice.","North for the Frost Crown, south for the Tide Pearl, east for the Heartwood Seed, west for the Ember Core. I made a rhyme of it once. It did not rhyme.","Each relic sends a beam of light into the sky. Look up, pick one, and walk until your feet complain."],g.n)];}},
  {name:"Old Fenwick",role:"Retired mountaineer",at:[0,-26],rad:3,speed:30,
   look:{skin:"#e3b48e",hair:"#e8e4dc",beard:"#e8e4dc",body:"#7a5a3a",bodyL:"#8f6c48",bodyD:"#5e432a",belt:"#3b2a1c",legs:"#3b2f2a",hat:"#6b4a2e",hatStyle:"fur"},
-  intro:["Hrmph. Another young fool headed for the peaks, I suppose.","Fifty years I climbed Frostspire. Lost two toes and a perfectly good sandwich up there.","Ice doesn't care where you want to go. Step on it and it takes you where it wants. Mind the cliffs."],
-  talk:g=>g.rel[0]!==0?["You got the Crown? ...Hrmph. Well. Fine. Good work.","Don't let it go to your head. Ha. Crown. Head. I'm hilarious."]:[pick(["The Frost Crown sits near the top of the world. Follow the old trail north. Can't find the trail? Then you aren't looking.","The pines thin out the higher you go. When there's nothing left but rock and wind, you're close.","Run on the ice and you'll slide clear into next week. Walk it.","Back in my day the mountains were taller. Erosion. Look it up."],g.n)]},
+  intro:["Hrmph. Another young fool headed for the peaks, I suppose.","Fifty years I climbed Frostspire. Lost two toes and a perfectly good sandwich up there.","Ice doesn't care where you want to go. Step on it and it takes you where it wants. Mind the cliffs.","And mind the wolves. And the cold. Mostly the wolves."],
+  talk:g=>g.rel[0]!==0?["You got the Crown? ...Hrmph. Well. Fine. Good work.","Don't let it go to your head. Ha. Crown. Head. I'm hilarious."]:[pick(["The Frost Crown sits near the top of the world. There's no trail. Never was. Pick your way between the ridges and keep the beam in sight.","The pines thin out the higher you go. When there's nothing left but rock and wind, you're close.","Run on the ice and you'll slide clear into next week. Walk it.","Back in my day the mountains were taller. Erosion. Look it up.","Frost wolves hunt the high slopes. You can't fight 'em. You can outrun 'em. Barely.","Cold up top will eat you alive. Find a campfire, sit, and thaw. Wolves won't come near a fire."],g.n)]},
  {name:"Captain Marisol Reyes",role:"Retired sea captain",at:[0,24],rad:3,speed:45,
   look:{skin:"#8d5a3b",hair:"#1f1612",body:"#2f4f8c",bodyL:"#3d63a8",bodyD:"#233b69",belt:"#e2c06a",accent:"#e9dcc0",legs:"#2d2430",hat:"#c0392b",hatStyle:"bandana"},
-  intro:["AHOY! Captain Marisol Reyes. Retired. My ship sank. Long story. Involves a goose.","The Sunken Coast lies south. Shallow water slows ye down. Deep water? Nobody swims the deep. Not even the goose.","There's a winding channel of shallows out to an island. The Pearl's out there. I'd bet my last boot on it."],
-  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end."],g.n)]},
+  intro:["AHOY! Captain Marisol Reyes. Retired. My ship sank. Long story. Involves a goose.","The Sunken Coast lies south. Shallow water slows ye down. Deep water? Nobody swims the deep. Not even the goose.","Somewhere out there the shallows wind between the deep water. The Pearl's past 'em. I'd bet my last boot on it.","And sharks. Did I mention sharks? Stay out of the water when ye can."],
+  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end.","Sharks patrol the water. Stay on the sand and they can't touch ye.","Pink jellies drift in the shallows. Slow as anything, but they sting like a tax collector."],g.n)]},
  {name:"Bram",role:"Woodcutter",at:[26,0],rad:3,speed:32,
   look:{skin:"#e8b48e",hair:"#b5512d",beard:"#b5512d",body:"#3e7a3a",bodyL:"#4f9248",bodyD:"#2e5c2b",belt:"#5b3d24",legs:"#4a3a2a"},
-  intro:["...Hello.","Bram. Woodcutter.","Forest is east. The trees are very old. Be polite to them."],
-  talk:g=>g.rel[2]!==0?["...You found the Seed.","Good. Trees are happy. Bram is happy."]:[pick(["...Follow the dirt trail.","Bushes slow you. Trees stop you. The trail is kind.","...Madame Quill talks a lot.","...Bram likes quiet.","...Nana's bread is good."],g.n)]},
+  intro:["...Hello.","Bram. Woodcutter.","Forest is east. The trees are very old. Be polite to them.","...Spiders live there. And bad mushrooms. Purple ones."],
+  talk:g=>g.rel[2]!==0?["...You found the Seed.","Good. Trees are happy. Bram is happy."]:[pick(["...No trail. Follow the light.","Bushes slow you. Trees stop you. Ponds get you wet.","...Madame Quill talks a lot.","...Bram likes quiet.","...Nana's bread is good.","...Purple mushrooms. Don't.","...Spiders. Big ones. Run."],g.n)]},
  {name:"Ash-Sister Vela",role:"Fire mystic",at:[-26,0],rad:3,speed:28,
   look:{skin:"#c99474",hair:"#1a1416",body:"#2a2230",bodyL:"#3a3044",bodyD:"#1d1824",belt:"#ff7a2a",accent:"#ff7a2a",legs:"#1d1824",hat:"#2a2230",hatStyle:"hood",eye:"#ff9a3a"},
-  intro:["The flame foretold your coming, wanderer.","Well. The flame foretold someone. You will do.","West lie the Cinder Wastes. The lava hungers, but slowly. Cross it if you must. Linger, and burn."],
+  intro:["The flame foretold your coming, wanderer.","Well. The flame foretold someone. You will do.","West lie the Cinder Wastes. The lava hungers, but slowly. Cross it if you must. Linger, and burn.","The ground there breathes fire, and the imps are... enthusiastic."],
   talk:g=>{
    if(g.rel[3]===1)return["The Ember Core burns in your hands. I can feel it from here. Also, your sleeve is smoking."];
    if(g.rel[3]===2)return["The Ember Core rests in the fountain. The flame is pleased. I am... mildly pleased."];
    if(g.hp<50)return["Your spirit flickers. Rest within the walls. Even fire needs air."];
-   return[pick(["Seek the cracked ground where the ash runs thin. The Core waits where nothing grows.","Obsidian is the earth's way of saying no. Go around.","Do not trust anyone who says lava is a nice warm bath. That was me. I was wrong."],g.n)];}},
+   return[pick(["Seek the cracked ground where the ash runs thin. The Core waits where nothing grows.","Obsidian is the earth's way of saying no. Go around.","Do not trust anyone who says lava is a nice warm bath. That was me. I was wrong.","When the ground smokes, step away. The vents whisper before they scream.","Ember imps dance on the lava. You cannot. Remember this difference."],g.n)];}},
  {name:"Pip",role:"Very fast kid",at:[6,2],rad:9,speed:118,scale:1.5,
   look:{skin:"#f2c9a0",hair:"#d98b3a",body:"#e8c33a",bodyL:"#f2d45c",bodyD:"#c9a42a",belt:"#5b3d24",legs:"#3a5a8c",freckles:true},
   intro:["HI! I'm Pip! I'm seven! Are you a hero? You look like a hero. Kind of. A medium one.","Wanna race? I'm the fastest in Hearthvale. Gus says I'm a menace. That's a compliment, right?"],
@@ -589,7 +795,7 @@ const NPC_DEFS=[
   talk:g=>{
    if(g.hp<60)return["Look at you, all scuffed up! Sit down. Your strength comes back faster inside the walls, you know."];
    if(g.placed===4)return["You brought them all home! I'm baking you a pie the size of a cart wheel. Don't argue."];
-   return[pick(["If you see Pip, tell him supper's at six. He won't listen. Tell him anyway.","Be careful in the Wastes, dear. Lava stains never wash out.","Bram brings me firewood every morning and says nothing. Lovely boy.","Take a scarf if you're going north. You won't, but I said it."],g.n)];}},
+   return[pick(["If you see Pip, tell him supper's at six. He won't listen. Tell him anyway.","Be careful in the Wastes, dear. Lava stains never wash out.","Bram brings me firewood every morning and says nothing. Lovely boy.","Take a scarf if you're going north. You won't, but I said it.","There are campfires out in the wilds, dear. Sit by one and you'll mend right up."],g.n)];}},
  {name:"Lute",role:"Traveling bard",at:[0,6],rad:3,speed:38,
   look:{skin:"#d9a37a",hair:"#2a1d16",body:"#2a8a86",bodyL:"#36a39e",bodyD:"#1f6a67",belt:"#6b4a2e",accent:"#8a4fb0",legs:"#4a2f5a",hat:"#8a4fb0",hatStyle:"feather"},
   intro:["Greetings, stranger, fair and bold! Your tale is yet to be told!","Four lands lie past the city wall, of ice and sea and flame and all!"],
@@ -645,9 +851,9 @@ function openDialog(n){
   const first=n.talks===0&&n.def.intro;
   dlg.lines=first?n.def.intro.slice():n.def.talk(gameFacts(Math.max(0,n.talks-(n.def.intro?1:0))));
   n.talks++;dlg.i=0;dlg.shown=0;state.talking=n;keys.clear();stick.on=false;
-  dName.textContent=n.def.name;dRole.textContent=n.def.role;dialogEl.hidden=false;document.body.classList.add("talking");
+  dName.textContent=n.def.name;dRole.textContent=n.def.role;setShown(dialogEl,true);document.body.classList.add("talking");
 }
-function closeDialog(){state.talking=null;dialogEl.hidden=true;document.body.classList.remove("talking");}
+function closeDialog(){state.talking=null;setShown(dialogEl,false);document.body.classList.remove("talking");}
 function advanceDialog(){const line=dlg.lines[dlg.i];if(dlg.shown<line.length){dlg.shown=line.length;return;}dlg.i++;if(dlg.i>=dlg.lines.length){closeDialog();return;}dlg.shown=0;}
 function stepDialog(dt){
   if(!state.talking)return;
@@ -659,7 +865,7 @@ function stepDialog(dt){
 dialogEl.addEventListener("click",()=>{if(state.talking)advanceDialog();});
 talkBtn.addEventListener("click",()=>{if(state.near&&!state.talking)openDialog(state.near);});
 let talkShown=false;
-function updateTalkBtn(){const show=!!(state.playing&&state.near&&!state.talking&&!state.mapOpen);if(show!==talkShown){talkShown=show;talkBtn.hidden=!show;}if(show)talkBtn.textContent="Talk to "+state.near.def.name.split(" ").slice(-1)[0];}
+function updateTalkBtn(){const show=!!(state.playing&&state.near&&!state.talking&&!state.mapOpen);if(show!==talkShown){talkShown=show;setShown(talkBtn,show);}if(show)talkBtn.textContent="Talk to "+state.near.def.name.split(" ").slice(-1)[0];}
 
 // drawing people
 const PLAYER_LOOK={skin:"#f1c69b",hair:"#4a2f1e",body:"#2e7fa8",bodyL:"#3a95c2",bodyD:"#22617f",belt:"#5b3d24",accent:"#c84a3a",legs:"#2d2430"};
@@ -721,16 +927,18 @@ function drawGem(x,y,s,c){ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(x,y-s);ctx.
 function glow(x,y,r,rgb,a){const g=ctx.createRadialGradient(x,y,1,x,y,r);g.addColorStop(0,`rgba(${rgb},${a})`);g.addColorStop(1,`rgba(${rgb},0)`);ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);}
 
 function drawPlayer(sx,sy){
+  if(player.inv>0&&Math.floor(time*16)%2)return;
   drawPerson(sx,sy,PLAYER_LOOK,player.face,player.anim,player.moving,2);
   const carried=RELICS.filter(q=>q.state===1);
   carried.forEach((q,k)=>{const a=time*2+k*Math.PI*2/carried.length,gx=sx+Math.cos(a)*18,gy=sy-18+Math.sin(a)*7;glow(gx,gy,14,q.glow,.5);drawGem(gx,gy,5,q.color);});
 }
 
+const visVents=[],visShrooms=[];
 function render(dt){
   ctx.fillStyle="#0b0a10";ctx.fillRect(0,0,vw,vh);
   const cx=Math.round(cam.x),cy=Math.round(cam.y);
   const x0=Math.max(0,Math.floor(cx/T)),y0=Math.max(0,Math.floor(cy/T)),x1=Math.min(W-1,Math.floor((cx+vw)/T)),y1=Math.min(H-1,Math.floor((cy+vh)/T));
-  const tick=Math.floor(time*2);
+  const tick=Math.floor(time*2);visVents.length=0;visShrooms.length=0;
   for(let y=y0;y<=y1;y++){const sy=y*T-cy;for(let x=x0;x<=x1;x++){
     const i=idx(x,y),t=tiles[i],sx=x*T-cx;let img;
     if(t===ROOF)img=ROOFS[varr[i]&3];
@@ -739,7 +947,12 @@ function render(dt){
     else if(t===SHALLOW||t===DEEP||t===LAVA)img=SPR[t][(tick+((x+y)>>1))%3];
     else{const a=SPR[t];img=a[varr[i]%a.length];}
     ctx.drawImage(img,sx,sy,T,T);
+    if(t===VENT)visVents.push(i);else if(t===SHROOM)visShrooms.push(i);
   }}
+  for(const i of visShrooms){const ph=(time*.5+varr[i]/256)%1;if(ph>.45)continue;const sx=(i%W+.5)*T-cx,sy=((i/W|0)+.5)*T-cy;ctx.fillStyle=`rgba(190,140,240,${.7*(1-ph/.45)})`;for(let k=0;k<3;k++)ctx.fillRect(Math.round(sx-6+k*6+Math.sin(time*3+k)*2),Math.round(sy-ph*40-k*3),3,3);}
+  for(const c of campfires){const sx=(c.x+.5)*T-cx,sy=(c.y+.5)*T-cy;if(sx<-100||sy<-100||sx>vw+100||sy>vh+100)continue;
+    glow(sx,sy,84+Math.sin(time*7+c.x)*6,"255,160,60",.26);
+    for(let k=0;k<6;k++){const ph=(time*1.8+k/6+c.x*.13)%1,fx=sx-7+((k*5)%13),fy=sy-ph*20;ctx.fillStyle=ph<.3?"#ffe08a":ph<.6?"#ff9a3a":"#d24617";const s=Math.max(1,Math.round((1-ph)*6));ctx.fillRect(Math.round(fx),Math.round(fy),s,s);}}
   // fountain
   const fx=(CX-1)*T-cx,fy=(CY-1)*T-cy;
   if(fx>-120&&fy>-120&&fx<vw+20&&fy<vh+20){
@@ -761,7 +974,11 @@ function render(dt){
   const actors=[{y:player.y,draw:()=>drawPlayer(Math.round(player.x-cx),Math.round(player.y-cy))}];
   for(const n of npcs){const sx=n.x-cx,sy=n.y-cy;if(sx<-40||sy<-60||sx>vw+40||sy>vh+40)continue;
     actors.push({y:n.y,draw:()=>n.def.cat?drawCat(Math.round(sx),Math.round(sy),n.face,n.anim,n.moving):drawPerson(Math.round(sx),Math.round(sy),n.def.look,n.face,n.anim,n.moving,n.def.scale||2)});}
+  for(const m of mobs){const sx=Math.round(m.x-cx),sy=Math.round(m.y-cy);if(sx<-40||sy<-60||sx>vw+40||sy>vh+40)continue;actors.push({y:m.kind===SHARK||m.kind===JELLY?m.y-40:m.y,draw:()=>MOB_DRAW[m.kind](sx,sy,m)});}
   actors.sort((a,b)=>a.y-b.y);for(const a of actors)a.draw();
+  for(const i of visVents){const sx=(i%W+.5)*T-cx,sy=((i/W|0)+.5)*T-cy,v=ventState(i);
+    if(v.warn){for(let k=0;k<4;k++){const ph=(time*1.5+k/4)%1,s=4+ph*6;ctx.fillStyle=`rgba(130,120,120,${.65*(1-ph)})`;ctx.fillRect(Math.round(sx-s/2+Math.sin(k*2+time*3)*4),Math.round(sy-ph*28-s/2),s,s);}}
+    if(v.erupt){const e=(v.f-.8)/.2,h=36+Math.sin(e*Math.PI)*44;glow(sx,sy-h/2,44,"255,120,30",.5);ctx.fillStyle="#d24617";ctx.fillRect(sx-8,sy-h,16,h);ctx.fillStyle="#ff8f2e";ctx.fillRect(sx-5,sy-h+4,10,h-4);ctx.fillStyle="#ffd65e";ctx.fillRect(sx-2,sy-h+8,4,h-8);for(let k=0;k<5;k++){const a=time*9+k*1.3;ctx.fillStyle="#ffb347";ctx.fillRect(Math.round(sx+Math.cos(a)*11),Math.round(sy-h-Math.abs(Math.sin(a))*10),3,3);}}}
   if(state.playing&&state.near&&!state.talking){const n=state.near;nameTag(n.x-cx,n.y-cy-(n.def.cat?38:(n.def.scale||2)*19+22),n.def.name,!isTouch);}
   if(state.talking){const n=state.talking,bx=Math.round(n.x-cx),by=Math.round(n.y-cy-(n.def.cat?30:(n.def.scale||2)*19+12));ctx.fillStyle="#f4ead2";ctx.fillRect(bx-9,by-8,18,10);ctx.fillRect(bx-2,by+2,4,3);ctx.fillStyle="#1b1408";for(let k=0;k<3;k++)if(Math.floor(time*3)%4>k)ctx.fillRect(bx-6+k*5,by-4,2,2);}
 
@@ -777,6 +994,9 @@ function render(dt){
   vg.addColorStop(0,`rgba(${tc},0)`);vg.addColorStop(1,`rgba(${tc},${tintA.toFixed(3)})`);ctx.fillStyle=vg;ctx.fillRect(0,0,vw,vh);
   const dv=ctx.createRadialGradient(vw/2,vh/2,R*.4,vw/2,vh/2,R*.8);dv.addColorStop(0,"rgba(0,0,0,0)");dv.addColorStop(1,"rgba(0,0,0,.35)");ctx.fillStyle=dv;ctx.fillRect(0,0,vw,vh);
   if(state.hurt){ctx.fillStyle=`rgba(255,60,20,${.12+.08*Math.sin(time*14)})`;ctx.fillRect(0,0,vw,vh);}
+  if(state.playing&&state.cold){const fg=ctx.createRadialGradient(vw/2,vh/2,R*.25,vw/2,vh/2,R*.7);fg.addColorStop(0,"rgba(220,240,255,0)");fg.addColorStop(1,`rgba(220,240,255,${.35+.1*Math.sin(time*2)})`);ctx.fillStyle=fg;ctx.fillRect(0,0,vw,vh);}
+  if(state.playing&&state.poison>0){ctx.fillStyle=`rgba(120,200,60,${.1+.06*Math.sin(time*6)})`;ctx.fillRect(0,0,vw,vh);}
+  if(state.flash>0){ctx.fillStyle=`rgba(220,30,30,${state.flash})`;ctx.fillRect(0,0,vw,vh);}
   // touch stick
   if(stick.on){ctx.strokeStyle="rgba(244,234,210,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(stick.ox,stick.oy,48,0,Math.PI*2);ctx.stroke();const dx=stick.x-stick.ox,dy=stick.y-stick.oy,m=Math.hypot(dx,dy),k=m>48?48/m:1;ctx.fillStyle="rgba(244,234,210,.45)";ctx.beginPath();ctx.arc(stick.ox+dx*k,stick.oy+dy*k,18,0,Math.PI*2);ctx.fill();}
 
@@ -803,26 +1023,48 @@ function drawMap(g,size,big){
 const mapOverlay=document.getElementById("mapOverlay");
 function sizeBig(){const s=Math.floor(Math.min(window.innerWidth*.86,window.innerHeight*.66,640));bigCv.style.width=s+"px";bigCv.style.height=s+"px";bigCv.width=Math.round(s*dpr);bigCv.height=Math.round(s*dpr);}
 function renderLegend(){document.getElementById("legend").innerHTML=RELICS.map(r=>`<span><i style="background:${r.color}"></i>${r.name}: ${r.state===0?"lost in the "+r.dir:r.state===1?"carried":"at the fountain"}</span>`).join("");}
-function toggleMap(force){state.mapOpen=force===undefined?!state.mapOpen:force;mapOverlay.hidden=!state.mapOpen;if(state.mapOpen){sizeBig();renderLegend();keys.clear();}}
+function toggleMap(force){state.mapOpen=force===undefined?!state.mapOpen:force;setShown(mapOverlay,state.mapOpen);if(state.mapOpen){sizeBig();renderLegend();keys.clear();}}
 document.getElementById("mapBtn").addEventListener("click",()=>{if(state.playing)toggleMap();});
 document.getElementById("closeMap").addEventListener("click",()=>toggleMap(false));
 mapOverlay.addEventListener("click",e=>{if(e.target===mapOverlay)toggleMap(false);});
 
 // ---------- flow ----------
-function startGame(){document.getElementById("intro").hidden=true;state.playing=true;cam.x=player.x-vw/2;cam.y=player.y-vh/2;clampCam();lastCam.x=cam.x;lastCam.y=cam.y;state.region=-1;}
-function win(){state.won=true;state.playing=false;const m=Math.floor(state.elapsed/60),s=Math.floor(state.elapsed%60);document.getElementById("winText").textContent=`All four relics are back in Hearthvale. Time: ${m}:${String(s).padStart(2,"0")}. Coins collected: ${state.coins} of ${coins.length}.`;document.getElementById("winOverlay").hidden=false;}
+// Screens are shown only by these functions. The win screen does not exist until the player wins.
+function setShown(el,on){if(el)el.style.display=on?(el.classList.contains("overlay")?"grid":"flex"):"none";}
+function startGame(){
+  setShown(document.getElementById("intro"),false);
+  const w=document.getElementById("winOverlay");if(w)w.remove();
+  state.screen="play";state.playing=true;
+  cam.x=player.x-vw/2;cam.y=player.y-vh/2;clampCam();lastCam.x=cam.x;lastCam.y=cam.y;state.region=-1;
+}
+function win(){
+  if(state.screen!=="play")return;
+  state.won=true;state.playing=false;state.screen="win";
+  if(state.talking)closeDialog();if(state.mapOpen)toggleMap(false);
+  const m=Math.floor(state.elapsed/60),s=Math.floor(state.elapsed%60);
+  const ov=document.createElement("div");ov.id="winOverlay";ov.className="overlay";ov.style.display="grid";
+  const card=document.createElement("div");card.className="card panel";
+  const h=document.createElement("h1");h.textContent="The fountain is whole";
+  const p=document.createElement("p");p.textContent=`All four relics are back in Hearthvale. Time: ${m}:${String(s).padStart(2,"0")}. Coins collected: ${state.coins} of ${coins.length}.`;
+  const btn=document.createElement("button");btn.className="btn primary";btn.textContent="Play a new world";
+  btn.addEventListener("click",()=>{ov.remove();SEED=(Math.random()*1e9)|0;generate();resetGame();startGame();});
+  card.append(h,p,btn);ov.appendChild(card);document.body.appendChild(ov);btn.focus();
+}
 document.getElementById("startBtn").addEventListener("click",startGame);
-document.getElementById("againBtn").addEventListener("click",()=>{document.getElementById("winOverlay").hidden=true;resetGame();startGame();});
 
 let last=performance.now();
-function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;
+function frame(now){const dt=Math.max(0,Math.min(.05,((now||performance.now())-last)/1000));last=now||performance.now();time+=dt;
   if(state.playing&&!state.mapOpen)update(dt);else if(!state.playing&&!state.won)idle(dt);
   if(!state.mapOpen)updateNPCs(dt);stepDialog(dt);updateTalkBtn();
-  render(dt);requestAnimationFrame(frame);}
+  try{render(dt);}catch(err){console.error(err);}
+  requestAnimationFrame(frame);}
 
 function boot(data){
-  resize();generate();resetGame();
-  if(data&&data.v===3&&typeof data.px==="number"){
+  resize();
+  const keep=data&&data.v===5&&typeof data.seed==="number";
+  SEED=keep?data.seed:(Math.random()*1e9)|0;
+  generate();resetGame();
+  if(keep&&typeof data.px==="number"){
     player.x=data.px;player.y=data.py;player.hp=data.hp??100;state.coins=data.coinCount||0;state.elapsed=data.elapsed||0;
     if(Array.isArray(data.relics))RELICS.forEach((r,k)=>r.state=data.relics[k]||0);
     if(Array.isArray(data.taken))data.taken.forEach(k=>{if(coins[k])coins[k].taken=true;});
@@ -831,7 +1073,7 @@ function boot(data){
   }
   requestAnimationFrame(frame);
 }
-window.claude?.hot?.snapshot?.(()=>({v:3,px:player.x,py:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
+window.claude?.hot?.snapshot?.(()=>({v:5,seed:SEED,px:player.x,py:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 })();
 </script>
