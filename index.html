@@ -35,6 +35,28 @@ body{color:var(--ink);font-family:var(--display);-webkit-user-select:none;user-s
 .label{font-size:12px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;width:44px}
 .bar{flex:1;height:10px;background:var(--hp-back);border:1px solid rgba(0,0,0,.5);position:relative}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--hp);width:100%;transition:width .12s linear}
+.hpwrap{--bw:112px;flex:1;display:flex;gap:3px;align-items:center;min-width:0}
+.hpwrap .bar{flex:none;width:var(--bw)}
+.sbar{flex:none;height:10px;width:calc(var(--bw) * var(--s,0));background:var(--gold);border:1px solid rgba(0,0,0,.5);box-shadow:0 0 8px rgba(242,193,78,.55);transition:width .12s linear}
+.invbtn{align-self:flex-start;font-size:13px;padding:4px 10px;position:relative}
+.invbtn.new::after{content:"";position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+@media (pointer:coarse){.invbtn .k{display:none}}
+.overlay>.card,.overlay>.mapwrap{margin-block:auto}
+.invcard{max-width:660px}
+.invhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.invhead h2{margin:0;font-size:28px;line-height:1}
+.invgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.invcard{gap:12px}
+.item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:86px;padding:8px 6px;background:var(--panel-solid);border:2px solid var(--line);border-radius:4px;color:var(--ink);font-family:var(--display);font-size:13px;line-height:1.2;text-align:center;cursor:pointer}
+.item:hover{border-color:var(--muted)}
+.item.sel{border-color:var(--gold)}
+.item:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.item img{width:40px;height:40px;image-rendering:pixelated}
+.item.empty{cursor:default;opacity:.35}
+.invdetail{display:flex;flex-direction:column;gap:8px;min-width:0}
+.invdetail h3{margin:0;font-size:20px;color:var(--gold)}
+.invdetail p{margin:0;font-size:15px;line-height:1.45}
+#bpCanvas{width:auto;height:auto;max-width:100%;max-height:46vh;border:2px solid var(--line);border-radius:4px;display:block;align-self:center}
 .slots{display:flex;gap:8px}
 .slot{width:16px;height:16px;transform:rotate(45deg);border:2px solid var(--c);opacity:.35;background:transparent;transition:opacity .2s, background .2s}
 .slot.carried{opacity:1;background:var(--c);box-shadow:0 0 10px var(--c)}
@@ -61,7 +83,7 @@ body{color:var(--ink);font-family:var(--display);-webkit-user-select:none;user-s
 .hint{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:max(12px, env(safe-area-inset-left,0px));font-size:13px;color:var(--muted);padding:6px 10px}
 @media (pointer:coarse){.hint{display:none}}
 
-.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(8,7,12,.55);padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:16px}
+.overlay{position:fixed;inset:0;display:grid;place-items:start center;overflow-y:auto;overscroll-behavior:contain;background:rgba(8,7,12,.55);padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:16px}
 .card{max-width:520px;width:100%;padding:24px;display:flex;flex-direction:column;gap:14px}
 .card h1{margin:0;font-size:clamp(34px,7vw,48px);line-height:1;letter-spacing:.02em;text-wrap:balance}
 .card p{margin:0;font-size:17px;line-height:1.45;color:var(--ink)}
@@ -79,6 +101,7 @@ kbd{font-family:var(--display);border:1px solid var(--line);border-bottom-width:
 .legend i{width:10px;height:10px;transform:rotate(45deg);display:inline-block}
 
 @media (max-width:600px){
+  .hpwrap{--bw:84px}
   #mini{width:104px;height:104px}
   .hud{min-width:150px;padding:8px 10px}
   .label{width:34px;font-size:11px}
@@ -99,7 +122,8 @@ body.talking .hint{display:none}
 <canvas id="game" aria-label="Game world"></canvas>
 
 <div class="hud panel" aria-live="polite">
-  <div class="row"><span class="label">HP</span><div class="bar"><i id="hpFill"></i></div></div>
+  <button class="btn invbtn" id="invBtn" type="button">Inventory<span class="k"> (I)</span></button>
+  <div class="row"><span class="label">HP</span><div class="hpwrap"><div class="bar"><i id="hpFill"></i></div><div class="sbar" id="shieldBar" style="display:none"></div></div></div>
   <div class="row"><span class="label">Relics</span><div class="slots" id="slots"></div></div>
   <div class="row" id="statusRow" style="display:none"><span class="label">Now</span><span id="status"></span></div>
   <div class="row"><span class="label">Coins</span><span class="coins">&#9670; <b id="coins">0</b></span></div>
@@ -114,7 +138,7 @@ body.talking .hint{display:none}
 <div id="toast" class="panel"></div>
 <div id="dialog" class="panel" style="display:none" role="dialog" aria-live="polite"><div class="dhead"><span id="dName"></span><span id="dRole"></span></div><p id="dText"></p><div id="dNext"></div></div>
 <button class="btn primary" id="talkBtn" style="display:none">Talk</button>
-<div class="hint panel"><kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> talk &nbsp; <kbd>M</kbd> map</div>
+<div class="hint panel"><kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> talk &nbsp; <kbd>I</kbd> items &nbsp; <kbd>M</kbd> map</div>
 
 <div id="intro" class="overlay" style="display:grid">
   <div class="card panel">
@@ -126,9 +150,17 @@ body.talking .hint{display:none}
       <div><b>E</b><span>The Forest</span></div>
       <div><b>W</b><span>Fiery Wastelands</span></div>
     </div>
-    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
+    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people and uses things. <kbd>I</kbd> opens your inventory. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
     <button class="btn primary" id="startBtn">Start exploring</button>
-    <div class="build">Build 9 &middot; Oct 27</div>
+    <div class="build">Build 14 &middot; Oct 28</div>
+  </div>
+</div>
+
+<div id="invOverlay" class="overlay" style="display:none">
+  <div class="card panel invcard" role="dialog" aria-label="Inventory">
+    <div class="invhead"><h2>Inventory</h2><button class="btn" id="invClose" type="button">Close</button></div>
+    <div class="invgrid" id="invGrid"></div>
+    <div class="invdetail" id="invDetail"></div>
   </div>
 </div>
 
@@ -362,6 +394,7 @@ function stepCost(i){
   if(isEdge(i))return 0;
   const t=tiles[i];
   if(region[i]===R_CITY)return SOLID[t]?0:1;
+  if(drowned[i])return 0;
   if(t===CAMP)return 0;
   if(t===DEEP)return 30;
   if(SOLID[t])return 40;
@@ -378,7 +411,7 @@ function opened(i){
   return reg===R_N?SNOW:reg===R_E?FGRASS:reg===R_W?ASH:reg===R_S?SAND:GRASS;
 }
 const dDist=new Int32Array(W*H),dPrev=new Int32Array(W*H);
-function openRoute(start,target){
+function openRoute(start,target,land){
   const C=41,dist=dDist.fill(0x7fffffff),prev=dPrev.fill(-1),B=Array.from({length:C},()=>[]);
   dist[start]=0;B[0].push(start);let d=0,empty=0;
   while(empty<C){
@@ -388,10 +421,12 @@ function openRoute(start,target){
     for(let k=0;k<4;k++){
       const nx=x+(k===0?1:k===1?-1:0),ny=y+(k===2?1:k===3?-1:0);
       if(nx<0||ny<0||nx>=W||ny>=H)continue;
-      const u=idx(nx,ny),c=stepCost(u);if(!c)continue;
+      const u=idx(nx,ny);if(land!==undefined&&region[u]!==land&&region[u]!==R_PLAINS)continue;
+      const c=stepCost(u);if(!c)continue;
       const nd=d+c;if(nd<dist[u]){dist[u]=nd;prev[u]=v;B[nd%C].push(u);}
     }
   }
+  if(target!==start&&prev[target]<0)return land!==undefined?openRoute(start,target):0;
   const route=[];let v=target;while(v>=0){route.push(v);v=prev[v];}
   let gaps=0;
   for(let k=0;k<route.length;k++){
@@ -402,7 +437,70 @@ function openRoute(start,target){
   return gaps;
 }
 // Each gate gets a guaranteed way out to its own land's relic.
-function connectRelics(){let g=0;for(const r of RELICS){const [gx,gy]=GATES[r.reg];g+=openRoute(idx(gx,gy),idx(r.tx,r.ty));}return g;}
+// Every gate gets a guaranteed way out. The Tide Pearl sits out past open deep water, so the south gate's route ends at the coast instead.
+let coastLine=H;
+const drowned=new Uint8Array(W*H);
+// The reachable coast is a maze of sandbars and little islands with deep water for walls.
+let cabin=null;
+function buildSea(rng){
+  const coast=i=>region[i]===R_S&&!drowned[i];
+  let x0=W,x1=0,y0=H,y1=0;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=idx(x,y);if(!coast(i))continue;tiles[i]=DEEP;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  if(x1<x0)return;
+  const C=7,cols=Math.floor((x1-x0)/C)+1,rows=Math.floor((y1-y0)/C)+1,cell=new Array(cols*rows).fill(null);
+  const okAround=(x,y,r)=>{for(let oy=-r;oy<=r;oy++)for(let ox=-r;ox<=r;ox++)if(!coast(idx(x+ox,y+oy)))return false;return true;};
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const x=x0+c*C+3+((rng()*3|0)-1),y=y0+r*C+3+((rng()*3|0)-1);
+    if(x>4&&y>4&&x<W-5&&y<H-5&&okAround(x,y,2))cell[r*cols+c]={x,y,c,r,seen:false};}
+  // tiles along a 4-connected line between two points
+  const line=(ax,ay,bx,by)=>{const out=[];let px=ax,py=ay;out.push(idx(px,py));const n=Math.max(Math.abs(bx-ax),Math.abs(by-ay))*2||1;
+    for(let k=1;k<=n;k++){const x=Math.round(ax+(bx-ax)*k/n),y=Math.round(ay+(by-ay)*k/n);if(x!==px&&y!==py)out.push(idx(x,py));if(x!==px||y!==py)out.push(idx(x,y));px=x;py=y;}return out;};
+  const link=(a,b)=>{const L=line(a.x,a.y,b.x,b.y);return L.every(coast)?L:null;};
+  // the way in: a causeway from the meadows, close to the south gate
+  const [gx,gy]=GATES[R_S],valid=cell.filter(Boolean).sort((a,b)=>Math.hypot(a.x-gx,a.y-gy)-Math.hypot(b.x-gx,b.y-gy));
+  const entrance=c=>{const path=[];for(let y=c.y;y>c.y-60;y--){const i=idx(c.x,y);if(region[i]===R_PLAINS)return path;if(!coast(i))return null;path.push(i);}return null;};
+  let root=null,ways=[];
+  for(const c of valid){const p=entrance(c);if(p){root=c;ways.push(p);break;}}
+  if(!root)return;
+  const tops=valid.filter(c=>c!==root&&Math.hypot(c.x-root.x,c.y-root.y)>40);
+  for(let k=0;k<tops.length&&ways.length<2;k++){const c=tops[rng()*tops.length|0],p=entrance(c);if(p)ways.push(p);}
+  // randomized depth-first maze with a few extra loops
+  const edges=[],stack=[root];root.seen=true;const reached=[root];
+  const nb=c=>[[1,0],[-1,0],[0,1],[0,-1]].map(([dc,dr])=>{const cc=c.c+dc,rr=c.r+dr;return cc>=0&&rr>=0&&cc<cols&&rr<rows?cell[rr*cols+cc]:null;}).filter(Boolean);
+  const failed=new Set(),key=(a,b)=>(a.r*cols+a.c)*cols*rows+(b.r*cols+b.c);
+  while(stack.length){const c=stack[stack.length-1],opts=nb(c).filter(n=>!n.seen&&!failed.has(key(c,n)));
+    if(!opts.length){stack.pop();continue;}
+    const n=opts[rng()*opts.length|0],L=link(c,n);
+    if(!L){failed.add(key(c,n));continue;}
+    n.seen=true;edges.push(L);reached.push(n);stack.push(n);}
+  for(const c of reached)for(const n of nb(c))if(n.seen&&(n.r>c.r||n.c>c.c)&&rng()<.06){const L=link(c,n);if(L)edges.push(L);}
+  // carve: islands, causeways and the way in
+  for(const c of reached){const rad=1.2+rng()*1.7;for(let oy=-3;oy<=3;oy++)for(let ox=-3;ox<=3;ox++){const i=idx(c.x+ox,c.y+oy);if(Math.hypot(ox,oy)<=rad&&coast(i))tiles[i]=SAND;}
+    if(rad>2.3&&rng()<.5){const i=idx(c.x+(rng()<.5?-2:2),c.y+(rng()<.5?-2:2));if(coast(i)&&tiles[i]===SAND)tiles[i]=PALM;}}
+  for(const L of edges){const wet=rng()<.3;for(const i of L)if(tiles[i]===DEEP)tiles[i]=wet?SHALLOW:SAND;else if(tiles[i]===PALM)tiles[i]=SAND;}
+  for(const p of ways)for(const i of p)tiles[i]=SAND;
+  // a cabin and a campfire at the southernmost sand you can actually walk to
+  cabin=null;
+  const walk=i=>coast(i)&&(tiles[i]===SAND||tiles[i]===SHALLOW),seen=new Uint8Array(W*H),q=[];
+  for(const p of ways){const i=p[p.length-1];if(!seen[i]){seen[i]=1;q.push(i);}}
+  let sx=-1,sy=-1;
+  while(q.length){const v=q.pop(),x=v%W,y=(v/W)|0;if(y>sy||(y===sy&&Math.abs(x-CX)<Math.abs(sx-CX))){sx=x;sy=y;}
+    for(const u of [v-1,v+1,v-W,v+W]){if(!seen[u]&&walk(u)){seen[u]=1;q.push(u);}}}
+  if(sy<0)return;
+  // shift sideways a little if the spot north of the fire is too narrow for a cabin
+  let cx=sx;for(const dx of [0,-1,1,-2,2,-3,3]){if([-1,0,1].every(ox=>[3,2].every(oy=>coast(idx(sx+dx+ox,sy-oy))))){cx=sx+dx;break;}}
+  for(let oy=-6;oy<=0;oy++)for(let ox=-4;ox<=4;ox++){const i=idx(cx+ox,sy+oy);if(Math.hypot(ox,oy+2.5)<=3.8&&coast(i))tiles[i]=SAND;}
+  for(let ox=-1;ox<=1;ox++){const r=idx(cx+ox,sy-3),f=idx(cx+ox,sy-2);if(!coast(r)||!coast(f))continue;tiles[r]=ROOF;varr[r]=3;tiles[f]=FRONT;varr[f]=6+(ox===0?1:0);}
+  const fire=idx(sx,sy);tiles[fire]=CAMP;varr[fire]=2;campfires.push({x:sx,y:sy});
+  cabin={x:cx,y:sy-2,fx:sx,fy:sy};
+}
+function connectRelics(){let g=0;for(const r of RELICS){if(r.reg===R_S)continue;const [gx,gy]=GATES[r.reg];g+=openRoute(idx(gx,gy),idx(r.tx,r.ty),r.reg);}return g;}
+// The southern three quarters of the ocean are open deep water.
+function drownSouth(){
+  let top=H;for(let y=0;y<H&&top===H;y++)for(let x=0;x<W;x+=2)if(region[idx(x,y)]===R_S){top=y;break;}
+  coastLine=top+(H-top)*.25;drowned.fill(0);
+  const shore=new Float32Array(W);for(let x=0;x<W;x++)shore[x]=coastLine+(fbm(x*.03,3.7,141)-.5)*16;
+  for(let y=Math.max(0,Math.floor(coastLine)-10);y<H;y++)for(let x=0;x<W;x++){if(y<=shore[x])continue;const i=idx(x,y);if(region[i]===R_S){tiles[i]=DEEP;drowned[i]=1;}}
+}
 function clearGates(){
   for(const k in GATES){const [gx,gy]=GATES[k],[ux,uy]=GATE_DIR[k];
     for(let st=-5;st<10;st+=.5)for(let w=-4;w<=4;w+=.5){
@@ -420,25 +518,67 @@ function computeReach(){
 }
 
 let coins=[],campfires=[],mobs=[];
+// Any piece of a land cut off from the main body of that land joins whatever land surrounds it.
+function absorbStrayPockets(){
+  const comp=new Int32Array(W*H).fill(-1),sizes=[],regs=[],best={};
+  for(let s0=0;s0<W*H;s0++){const r=region[s0];if(comp[s0]>=0||r===R_PLAINS||r===R_CITY)continue;
+    const id=sizes.length,q=[s0];comp[s0]=id;let n=0;
+    while(q.length){const v=q.pop();n++;const x=v%W,y=(v/W)|0;
+      if(x>0){const u=v-1;if(comp[u]<0&&region[u]===r){comp[u]=id;q.push(u);}}
+      if(x<W-1){const u=v+1;if(comp[u]<0&&region[u]===r){comp[u]=id;q.push(u);}}
+      if(y>0){const u=v-W;if(comp[u]<0&&region[u]===r){comp[u]=id;q.push(u);}}
+      if(y<H-1){const u=v+W;if(comp[u]<0&&region[u]===r){comp[u]=id;q.push(u);}}}
+    sizes.push(n);regs.push(r);if(best[r]===undefined||n>sizes[best[r]])best[r]=id;}
+  let stray=[];for(let v=0;v<W*H;v++){const c=comp[v];if(c>=0&&best[regs[c]]!==c)stray.push(v);}
+  for(let pass=0;pass<200&&stray.length;pass++){const left=[],moves=[];
+    for(const v of stray){const x=v%W,y=(v/W)|0,cnt={};
+      for(const u of [x>0?v-1:-1,x<W-1?v+1:-1,y>0?v-W:-1,y<H-1?v+W:-1]){if(u<0)continue;const cu=comp[u];if(cu>=0&&best[regs[cu]]===cu)cnt[regs[cu]]=(cnt[regs[cu]]||0)+1;}
+      let pick=-1,pc=0;for(const k in cnt)if(cnt[k]>pc){pc=cnt[k];pick=+k;}
+      if(pick>=0)moves.push(v,pick);else left.push(v);}
+    if(!moves.length)break;
+    for(let k=0;k<moves.length;k+=2){const v=moves[k],p=moves[k+1];region[v]=p;comp[v]=best[p];}
+    stray=left;}
+  // whatever is still cut off only touches the meadows, so it becomes meadow
+  for(let v=0;v<W*H;v++){const c=comp[v];if(c>=0&&best[regs[c]]!==c)region[v]=R_PLAINS;}
+}
+// True when everything within `rad` tiles of (x,y) belongs to the same land.
+function deepInside(x,y,reg,rad){
+  for(let rr=4;rr<=rad;rr+=6)for(let k=0;k<24;k++){const a=k/24*Math.PI*2,xx=Math.round(x+Math.cos(a)*rr),yy=Math.round(y+Math.sin(a)*rr);
+    if(xx<4||yy<4||xx>=W-4||yy>=H-4||region[idx(xx,yy)]!==reg)return false;}
+  return true;
+}
 function generate(){
   campfires=[];mobs=[];
+  // Each land is one connected wedge. Its borders wave with distance from the city, never folding back on themselves.
+  const PI=Math.PI,bAng=[-PI/4,PI/4,3*PI/4,-3*PI/4];
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const i=idx(x,y),dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy),Q=Math.PI/4;
-    let a=Math.atan2(dy,dx)+(fbm(x*.012,y*.012,5)-.5)*2.2+(fbm(x*.04,y*.04,6)-.5)*.6;
-    while(a>Math.PI)a-=2*Math.PI; while(a<-Math.PI)a+=2*Math.PI;
-    let reg=(a>-Q&&a<=Q)?R_E:(a>Q&&a<=3*Q)?R_S:(a>-3*Q&&a<=-Q)?R_N:R_W;
+    const i=idx(x,y),dx=x-CX,dy=y-CY,d=Math.hypot(dx,dy);
     const pr=CITY_R*1.45+10+fbm(x*.06,y*.06,9)*14, t=clamp((d-pr)/165+(fbm(x*.03,y*.03,7)-.5)*.35,0,1);
-    let tile;
-    if(d<pr){reg=R_PLAINS;const h=hash(x,y,3);tile=(fbm(x*.08,y*.08,8)>.6&&h<.35)||h<.01?OAK:h<.07?MEADOW:GRASS;}
-    else tile=biome(reg,x,y,t);
-    if(x<3||y<3||x>=W-3||y>=H-3) tile=EDGE[reg]??ROCK;
-    tiles[i]=tile;region[i]=reg;depthT[i]=t;varr[i]=hash(x,y,99)*256|0;
+    depthT[i]=t;varr[i]=hash(x,y,99)*256|0;
+    if(d<pr){region[i]=R_PLAINS;continue;}
+    const a=Math.atan2(dy,dx)+(fbm(x*.05,y*.05,6)-.5)*.22;
+    const b=k=>bAng[k]+(fbm(d*.012+k*17.3,k*5.1,5)-.5)*1.3;
+    const b0=b(0),b1=b(1),b2=b(2),b3=b(3);
+    region[i]=(a>b0&&a<=b1)?R_E:(a>b1&&a<=b2)?R_S:(a>b3&&a<=b0)?R_N:R_W;
   }
+  absorbStrayPockets();
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=idx(x,y),reg=region[i];let tile;
+    if(reg===R_PLAINS){const h=hash(x,y,3);tile=(fbm(x*.08,y*.08,8)>.6&&h<.35)||h<.01?OAK:h<.07?MEADOW:GRASS;}
+    else tile=biome(reg,x,y,depthT[i]);
+    if(x<3||y<3||x>=W-3||y>=H-3) tile=EDGE[reg]??ROCK;
+    tiles[i]=tile;
+  }
+  drownSouth();
   const rng=mulberry32(SEED*977+13);
   buildCity(rng);
+  buildSea(rng);
   for(const r of RELICS){
-    const ang=r.ang+(rng()-.5)*.8, dist=385+rng()*75;
-    r.tx=clamp(Math.round(CX+Math.cos(ang)*dist),10,W-11);r.ty=clamp(Math.round(CY+Math.sin(ang)*dist),10,H-11);r.ph=rng()*6;
+    r.tx=-1;
+    for(let k=0;k<600&&r.tx<0;k++){const ang=r.ang+(rng()-.5)*.8,dist=385+rng()*75,x=Math.round(CX+Math.cos(ang)*dist),y=Math.round(CY+Math.sin(ang)*dist);
+      if(x>12&&y>12&&x<W-13&&y<H-13&&deepInside(x,y,r.reg,k<400?40:22)){r.tx=x;r.ty=y;}}
+    if(r.tx<0){r.tx=clamp(Math.round(CX+Math.cos(r.ang)*420),12,W-13);r.ty=clamp(Math.round(CY+Math.sin(r.ang)*420),12,H-13);}
+    r.ph=rng()*6;
     for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){
       const x=r.tx+dx,y=r.ty+dy,i=idx(x,y),dd=Math.hypot(dx,dy);
       if(r.reg===R_S){ if(dd<=3) tiles[i]=SAND; else if(dd<=5&&tiles[i]===DEEP) tiles[i]=SHALLOW; }
@@ -456,7 +596,6 @@ function generate(){
 }
 function placeCoins(){
   const rng=mulberry32(SEED*31337+7);coins=[];
-  for(let k=0,tries=0;k<45&&tries<20000;tries++){const x=CX-CITY_R+(rng()*CITY_R*2|0),y=CY-CITY_R+(rng()*CITY_R*2|0),i=idx(x,y);if(region[i]===R_CITY&&district[i]===D_WARRENS&&reach[i]&&!SOLID[tiles[i]]){coins.push({x:(x+.5)*T,y:(y+.5)*T,taken:false});k++;}}
   const ok=(x,y)=>{if(x<3||y<3||x>=W-3||y>=H-3)return false;const i=idx(x,y);return reach[i]&&!SOLID[tiles[i]]&&tiles[i]!==LAVA&&region[i]!==R_CITY;};
   // hoards tucked away in the deep wilds
   let hoards=0,tries=0;
@@ -553,12 +692,12 @@ const bigCv=document.getElementById("big"),bctx=bigCv.getContext("2d");
 function sizeMini(){const s=miniCv.getBoundingClientRect().width||150;miniCv.width=Math.round(s*dpr);miniCv.height=Math.round(s*dpr);}
 
 // ---------- game state ----------
-const player={x:0,y:0,vx:0,vy:0,hp:100,face:0,anim:0,moving:false,inv:0,ventHit:-1};
+const player={x:0,y:0,vx:0,vy:0,hp:100,shield:0,face:0,anim:0,moving:false,inv:0,ventHit:-1};
 const cam={x:0,y:0};
 const state={screen:"intro",playing:false,mapOpen:false,won:false,elapsed:0,coins:0,region:-1,pendingRegion:-1,pendingT:0,hurt:0};
 function resetGame(){
   player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.hp=100;player.face=0;
-  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
+  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;player.shield=0;state.items=[];state.scene="world";state.nearObj=null;state.invOpen=false;state.fade=0;buildWorldObjs();state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
   resetMini();reveal(CX,CY,CITY_R+4);updateHud();initNPCs();if(state.talking)closeDialog();state.near=null;
   cam.x=player.x-vw/2;cam.y=player.y-vh/2;
 }
@@ -568,9 +707,11 @@ const keys=new Set();
 window.addEventListener("keydown",e=>{
   const k=e.key.toLowerCase();
   if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();
-  if(state.playing&&!state.mapOpen&&(k==="e"||k===" "||k==="enter")){e.preventDefault();if(state.talking){advanceDialog();return;}if(state.near){openDialog(state.near);return;}}
+  if(state.invOpen){if(k==="i"||k==="escape"){toggleInv(false);}return;}
+  if(state.playing&&!state.mapOpen&&(k==="e"||k===" "||k==="enter")){e.preventDefault();if(state.talking){advanceDialog();return;}if(state.near){openDialog(state.near);return;}if(state.nearObj){state.nearObj.use();return;}}
+  if(k==="i"&&state.playing&&!state.talking&&!state.mapOpen){toggleInv(true);return;}
   if(k==="escape"&&state.talking){closeDialog();return;}
-  if(k==="m"&&state.playing&&!state.talking){toggleMap();return;}
+  if(k==="m"&&state.playing&&!state.talking&&!state.invOpen){toggleMap();return;}
   if(k==="escape"&&state.mapOpen){toggleMap(false);return;}
   if(k==="enter"&&state.screen==="intro"){startGame();return;}
   keys.add(k);
@@ -597,8 +738,10 @@ const slotsEl=document.getElementById("slots");
 RELICS.forEach(r=>{const d=document.createElement("div");d.className="slot";d.style.setProperty("--c",r.color);d.title=r.name;slotsEl.appendChild(d);r.el=d;});
 let lastHud="";
 let lastStatus="";
+let lastShield=-1;
 function updateHud(){
   document.getElementById("hpFill").style.width=Math.max(0,player.hp)+"%";
+  const sh=Math.ceil(player.shield);if(sh!==lastShield){lastShield=sh;const sb=document.getElementById("shieldBar");sb.style.display=sh>0?"block":"none";sb.style.setProperty("--s",(sh/100).toFixed(3));}
   const st=[state.burning&&"Burning",state.cold&&"Freezing",state.poison>0&&"Poisoned",state.warm&&player.hp<100&&"Warming up"].filter(Boolean).join(", ");
   if(st!==lastStatus){lastStatus=st;document.getElementById("status").textContent=st;document.getElementById("statusRow").style.display=st?"flex":"none";}
   const key=state.coins+"|"+RELICS.map(r=>r.state).join("");
@@ -630,27 +773,28 @@ const TIPS={
 function tip(k){if(!state.tips||state.tips.has(k))return;state.tips.add(k);toast(TIPS[k],4200);}
 function hurtPlayer(d,sx,sy,cause){
   if(player.inv>0)return false;
-  player.hp-=d;player.inv=.6;state.flash=.3;
+  damage(d);player.inv=.6;state.flash=.3;
   if(sx!==undefined){const dx=player.x-sx,dy=player.y-sy,m=Math.hypot(dx,dy)||1;player.vx+=dx/m*320;player.vy+=dy/m*320;}
   tip(cause);return true;
 }
 function ventState(i){const h1=hash(i%W,(i/W)|0,555),P=4+h1*3,tt=time+h1*20,f=(tt%P)/P;return{warn:f>.6&&f<.8,erupt:f>=.8,f,id:i*1000+Math.floor(tt/P)};}
-function mobTile(kind,px,py){const i=tileAt(px,py);if(i<0)return false;const t=tiles[i],r=region[i];
+function mobTile(kind,px,py,reg){const i=tileAt(px,py);if(i<0)return false;const t=tiles[i],r=region[i];
+  if(reg!==undefined&&r!==reg)return false;
   if(r===R_CITY||r===R_PLAINS)return false;
   if(kind===SHARK||kind===JELLY)return t===SHALLOW||t===DEEP;
   if(SOLID[t]||t===SHALLOW||t===DEEP)return false;
   if(t===LAVA)return kind===IMP;
   return true;}
-function mobFree(k,x,y){return mobTile(k,x-6,y-4)&&mobTile(k,x+6,y-4)&&mobTile(k,x-6,y+3)&&mobTile(k,x+6,y+3);}
+function mobFree(k,x,y,reg){return mobTile(k,x-6,y-4,reg)&&mobTile(k,x+6,y-4,reg)&&mobTile(k,x-6,y+3,reg)&&mobTile(k,x+6,y+3,reg);}
 function mobMove(m,tx,ty,spd,dt){
   const dx=tx-m.x,dy=ty-m.y,d=Math.hypot(dx,dy);if(d<3||spd<=0){m.moving=false;return true;}
   const st=Math.min(d,spd*dt),vx=dx/d*st,vy=dy/d*st;let moved=false;
-  if(mobFree(m.kind,m.x+vx,m.y)){m.x+=vx;moved=true;}
-  if(mobFree(m.kind,m.x,m.y+vy)){m.y+=vy;moved=true;}
+  if(mobFree(m.kind,m.x+vx,m.y,m.reg)){m.x+=vx;moved=true;}
+  if(mobFree(m.kind,m.x,m.y+vy,m.reg)){m.y+=vy;moved=true;}
   if(Math.abs(vx)>.05)m.face=vx<0?-1:1;
   m.moving=moved;return moved;
 }
-function mobTarget(m){for(let k=0;k<8;k++){const tx=m.hx+(Math.random()*2-1)*5*T,ty=m.hy+(Math.random()*2-1)*5*T;if(mobFree(m.kind,tx,ty)){m.tx=tx;m.ty=ty;return;}}m.tx=m.hx;m.ty=m.hy;}
+function mobTarget(m){for(let k=0;k<8;k++){const tx=m.hx+(Math.random()*2-1)*5*T,ty=m.hy+(Math.random()*2-1)*5*T;if(mobFree(m.kind,tx,ty,m.reg)){m.tx=tx;m.ty=ty;return;}}m.tx=m.hx;m.ty=m.hy;}
 function updateMobs(dt){
   const pi=tileAt(player.x,player.y),pWater=pi>=0&&(tiles[pi]===SHALLOW||tiles[pi]===DEEP);
   for(const m of mobs){
@@ -677,11 +821,12 @@ function spawnMobs(rng){
       if(region[i]!==reg||depthT[i]<.18||rng()>depthT[i]+.25)continue;
       const water=kind===SHARK||kind===JELLY;
       if(water?!(tiles[i]===SHALLOW||tiles[i]===DEEP):!reach[i])continue;
-      const px=(x+.5)*T,py=(y+.5)*T;if(!mobFree(kind,px,py))continue;
+      const px=(x+.5)*T,py=(y+.5)*T;if(!mobFree(kind,px,py,reg))continue;
       if(campfires.some(c=>Math.abs(c.x-x)<8&&Math.abs(c.y-y)<8))continue;
+      if(RELICS.some(r=>r.reg!==reg&&Math.hypot(r.tx-x,r.ty-y)<40))continue;
       made++;
-      for(let k=0;k<size;k++){const ox=k?(rng()-.5)*40:0,oy=k?(rng()-.5)*40:0,sx=mobFree(kind,px+ox,py+oy)?px+ox:px,sy=mobFree(kind,px+ox,py+oy)?py+oy:py;
-        const m={kind,x:sx,y:sy,hx:sx,hy:sy,tx:sx,ty:sy,wait:rng()*3,cd:0,anim:rng()*10,face:1,moving:false,chasing:false};mobs.push(m);}
+      for(let k=0;k<size;k++){const ox=k?(rng()-.5)*40:0,oy=k?(rng()-.5)*40:0,sx=mobFree(kind,px+ox,py+oy,reg)?px+ox:px,sy=mobFree(kind,px+ox,py+oy,reg)?py+oy:py;
+        const m={kind,reg,x:sx,y:sy,hx:sx,hy:sy,tx:sx,ty:sy,wait:rng()*3,cd:0,anim:rng()*10,face:1,moving:false,chasing:false};mobs.push(m);}
     }
   }
 }
@@ -771,6 +916,189 @@ function updateRats(dt){for(const r of rats){const dx=r.x-player.x,dy=r.y-player
 function drawRat(sx,sy,r){const f=r.face;ctx.fillStyle="#5a5252";ctx.fillRect(sx-5,sy-5,10,5);ctx.fillRect(sx+(f>0?4:-8),sy-4,4,3);ctx.fillStyle="#d88a9a";ctx.fillRect(sx+(f>0?-11:5),sy-2,6,1);ctx.fillRect(sx+(f>0?6:-7),sy-6,1,1);ctx.fillStyle="#1d1a20";ctx.fillRect(sx+(f>0?6:-7),sy-4,1,1);}
 let darkA=0;
 
+// ---------- the cabin, bonus health and the inventory ----------
+function damage(n){if(player.shield>0){const a=Math.min(player.shield,n);player.shield-=a;n-=a;}player.hp-=n;}
+function showBanner(name,sub){document.getElementById("bName").textContent=name;document.getElementById("bSub").textContent=sub;const b=document.getElementById("banner");b.classList.add("show");clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>b.classList.remove("show"),2600);}
+function showMessage(name,role,lines){dlg.lines=lines;dlg.i=0;dlg.shown=0;state.talking={msg:true};keys.clear();stick.on=false;dName.textContent=name;dRole.textContent=role;setShown(dialogEl,true);document.body.classList.add("talking");}
+const ROOM_W=12,ROOM_H=9,IT=48;
+const ROOM=[
+  "#Sw##HH##w##",
+  "#B...HH..WW#",
+  "#B...rr....#",
+  "#....rr....#",
+  "#..TT......#",
+  "#..........#",
+  "#.........b#",
+  "#..........#",
+  "######D#####"];
+const roomCh=(tx,ty)=>tx<0||ty<0||tx>=ROOM_W||ty>=ROOM_H?"#":ROOM[ty][tx];
+const roomSolidAt=(px,py)=>"#SwHBWTbD".includes(roomCh(Math.floor(px/IT),Math.floor(py/IT)));
+const roomCollides=(x,y)=>roomSolidAt(x-10,y-8)||roomSolidAt(x+10,y-8)||roomSolidAt(x-10,y+4)||roomSolidAt(x+10,y+4);
+let worldObjs=[];
+function buildWorldObjs(){worldObjs=[];if(cabin)worldObjs.push({name:"Captain's Cabin",label:()=>"Enter the cabin",x:(cabin.x+.5)*T,y:(cabin.y+1+.5)*T,use:enterCabin});}
+function enterCabin(){
+  state.worldPos={x:player.x,y:player.y};state.scene="cabin";
+  player.x=6.5*IT;player.y=7.4*IT;player.vx=player.vy=0;player.face=1;state.near=null;state.nearObj=null;state.fade=.5;
+  showBanner("Captain Reyes's Cabin","The Sunken Coast · Rest, warm up, look around");
+}
+function exitCabin(){
+  if(state.talking)closeDialog();
+  player.x=state.worldPos.x;player.y=state.worldPos.y+6;player.vx=player.vy=0;player.face=0;state.scene="world";state.nearObj=null;state.fade=.5;
+  cam.x=player.x-vw/2;cam.y=player.y-vh/2-10;clampCam();lastCam.x=cam.x;lastCam.y=cam.y;state.region=-1;
+}
+const ROOM_OBJS=[
+  {name:"Cot",r:[1,1,2,3],label:()=>"Rest on the cot",use:()=>{
+    if(player.hp>=100&&player.shield>=50)return showMessage("Cot","",["You lie down for a minute, but you're already as rested as you're going to get."]);
+    state.fade=1.4;player.hp=100;player.shield=50;
+    showMessage("Cot","",["You stretch out on the creaky cot and sleep like a rock.","You wake up feeling tougher than before. +50 bonus health. It won't come back once you lose it."]);}},
+  {name:"Table",r:[3,4,5,5],label:()=>state.items.includes("blueprint")?"Look at the table":"Pick up the blueprint",use:()=>{
+    if(state.items.includes("blueprint"))return showMessage("Table","",["A salt-stained mug, a candle stub and a lot of sand. Nothing else."]);
+    state.items.push("blueprint");document.getElementById("invBtn").classList.add("new");
+    showMessage("Table","",["Under a salt-stained mug lies a rolled-up sheet of heavy paper.","You got the Ship Blueprint! Open your inventory to look at it."]);}},
+  {name:"Workbench",r:[9,1,11,2],label:()=>"Look at the workbench",use:()=>showMessage("Workbench","",state.items.includes("blueprint")
+    ?["A sturdy bench with saws, a mallet, a vise and a coil of rope.","You spread the blueprint across it. With enough planks, rope and cloth, this is where she could be built."]
+    :["A sturdy bench with saws, a mallet, a vise and a coil of rope.","Somebody was in the middle of building something here."])},
+  {name:"Hearth",r:[5,0,7,2],label:()=>"Look at the hearth",use:()=>showMessage("Hearth","",["The fire crackles. It smells like pine and old sea salt.","Stand close and it warms you right up."])},
+  {name:"Door",r:[6,8,7,9],label:()=>"Leave the cabin",use:exitCabin},
+];
+const rectDist=(px,py,r)=>{const dx=Math.max(r[0]-px,0,px-r[2]),dy=Math.max(r[1]-py,0,py-r[3]);return Math.hypot(dx,dy);};
+function updateCabin(dt){
+  state.elapsed+=dt;
+  let ix=0,iy=0;
+  if(keys.has("a")||keys.has("arrowleft"))ix-=1;if(keys.has("d")||keys.has("arrowright"))ix+=1;
+  if(keys.has("w")||keys.has("arrowup"))iy-=1;if(keys.has("s")||keys.has("arrowdown"))iy+=1;
+  let run=keys.has("shift");
+  if(stick.on){const dx=stick.x-stick.ox,dy=stick.y-stick.oy,m=Math.hypot(dx,dy);if(m>6){ix=dx/Math.max(m,48);iy=dy/Math.max(m,48);run=m>70;}}
+  if(state.talking){ix=0;iy=0;run=false;}
+  const m=Math.hypot(ix,iy);if(m>1){ix/=m;iy/=m;}
+  const target=190*(run?1.4:1);
+  player.vx+=(ix*target-player.vx)*Math.min(1,14*dt);player.vy+=(iy*target-player.vy)*Math.min(1,14*dt);
+  const nx=player.x+player.vx*dt;if(!roomCollides(nx,player.y))player.x=nx;else player.vx=0;
+  const ny=player.y+player.vy*dt;if(!roomCollides(player.x,ny))player.y=ny;else player.vy=0;
+  const sp=Math.hypot(player.vx,player.vy);player.moving=sp>20;
+  if(m>.1)player.face=Math.abs(ix)>Math.abs(iy)?(ix<0?2:3):(iy<0?1:0);
+  if(player.moving)player.anim+=sp*dt*.06;
+  // walk down through the doorway to leave
+  if(iy>.5&&Math.floor(player.x/IT)===6&&player.y>7.45*IT)return exitCabin();
+  const tx=player.x/IT,ty=player.y/IT;state.near=null;state.nearObj=null;let bd=.9;
+  for(const o of ROOM_OBJS){const d=rectDist(tx,ty-.2,o.r);if(d<bd){bd=d;state.nearObj=o;}}
+  player.inv=Math.max(0,player.inv-dt);state.flash=Math.max(0,state.flash-dt);
+  state.cold=false;state.burning=false;state.warm=rectDist(tx,ty,[5,0,7,2])<2.4;
+  if(state.warm)player.hp=Math.min(100,player.hp+12*dt);
+  if(state.poison>0){state.poison-=dt;damage(5*dt);if(player.hp<1)player.hp=1;}
+  updateHud();
+}
+
+// cabin sprites (16px art, drawn at 48px)
+const mkW=(w,h,fn,seed)=>{const c=document.createElement("canvas");c.width=w;c.height=h;const g=c.getContext("2d");fn(g,mulberry32(seed));return c;};
+const CAB={};
+CAB.floor=[0,1,2,3].map(k=>mkW(16,16,(g,r)=>{fill(g,"#7a5232");for(let y=0;y<16;y+=4){p(g,0,y+3,"#5a3a22",16,1);const sx=(r()*12|0)+2;p(g,sx,y,"#5a3a22",1,3);for(let j=0;j<3;j++)p(g,r()*15|0,y+(r()*3|0),["#86603a","#6e4a2c"][j%2],2,1);}if(r()<.4)disc(g,4+(r()*8|0),4+(r()*8|0),1,"#5a3a22");},880+k));
+CAB.wall=[0,1].map(k=>mkW(16,16,(g,r)=>{fill(g,"#4a3020");for(let y=0;y<16;y+=4){p(g,0,y,"#7a5232",16,3);p(g,0,y,"#8a6338",16,1);p(g,0,y+3,"#2e1e14",16,1);for(let j=0;j<2;j++)p(g,r()*14|0,y+1,"#6b4a2e",2,1);}},890+k));
+CAB.shelf=mkW(16,16,g=>{g.drawImage(CAB.wall[0],0,0);p(g,1,10,"#a07745",14,2);p(g,1,12,"#4a3020",14,1);p(g,2,6,"#3f7a4a",2,4);p(g,2,5,"#8fd0a0",2,1);p(g,6,7,"#e8e0cf",3,3);p(g,11,5,"#8a3a3a",2,5);p(g,13,6,"#c9a43a",2,4);},900);
+CAB.window=mkW(16,16,g=>{g.drawImage(CAB.wall[1],0,0);p(g,3,3,"#3a2616",10,10);p(g,4,4,"#6fb8d8",8,8);p(g,4,9,"#2f7ea8",8,3);p(g,4,4,"#bfe6f2",3,2);p(g,7,4,"#3a2616",1,8);p(g,4,7,"#3a2616",8,1);},901);
+CAB.door=mkW(16,16,g=>{g.drawImage(CAB.wall[0],0,0);p(g,3,0,"#3a2616",10,16);p(g,4,1,"#8a6338",8,15);p(g,4,5,"#6b4a2e",8,1);p(g,4,10,"#6b4a2e",8,1);p(g,10,8,"#e2c06a",1,2);p(g,4,15,"#f2e2a8",8,1);},902);
+CAB.rug=[0,1,2,3].map(k=>mkW(16,16,g=>{g.drawImage(CAB.floor[k],0,0);p(g,0,1,"#7d2a2a",16,14);p(g,0,2,"#a84a32",16,12);for(let y=3;y<13;y+=3)for(let x=(y%2)*2;x<16;x+=4)p(g,x,y,"#e2c06a",2,1);p(g,0,1,"#e2c06a",16,1);p(g,0,14,"#e2c06a",16,1);},910+k));
+CAB.cot=mkW(16,32,g=>{fill(g,"#7a5232");p(g,1,1,"#4a3020",14,30);p(g,2,2,"#6b4a2e",12,28);p(g,3,3,"#d8c8a0",10,26);p(g,3,4,"#f0ece4",10,5);p(g,4,5,"#ffffff",8,2);p(g,3,11,"#8a3a3a",10,18);for(let y=13;y<28;y+=4)p(g,3,y,"#a84a4a",10,1);p(g,3,11,"#c06060",10,1);},920);
+CAB.table=[0,1].map(k=>mkW(32,16,g=>{fill(g,"#7a5232");p(g,1,2,"#4a3020",30,12);p(g,2,2,"#a07745",28,10);p(g,2,2,"#b88a55",28,1);p(g,2,12,"#6b4a2e",28,1);
+  disc(g,7,6,2,"#d8d0c0");p(g,6,5,"#6a4a2a",2,2);p(g,25,4,"#e8e0cf",2,5);p(g,25,3,"#ffd65e",2,1);
+  if(!k){p(g,11,5,"#2f6fb0",11,5);p(g,11,5,"#5a9ad8",11,1);p(g,13,7,"#d8ecff",6,1);p(g,22,4,"#1f4f80",2,7);p(g,15,4,"#c8384a",2,7);}},930+k));
+CAB.bench=mkW(32,16,g=>{g.drawImage(CAB.wall[0],0,0);g.drawImage(CAB.wall[1],16,0);p(g,0,4,"#3a2616",32,12);p(g,1,5,"#6b4a2e",30,10);p(g,1,5,"#8a6338",30,1);
+  p(g,3,7,"#b8bec8",9,2);for(let x=3;x<12;x+=2)p(g,x,9,"#8890a0",1,1);p(g,12,7,"#6b4a2e",2,2);p(g,16,6,"#5a3a22",3,6);p(g,15,6,"#7d786f",5,2);disc(g,26,10,3,"#c9a26a");disc(g,26,10,1,"#8a6338");},940);
+CAB.barrel=[0,1,2,3].map(k=>mkW(16,16,g=>{g.drawImage(CAB.floor[k],0,0);disc(g,8,9,5,"#4a3020");disc(g,8,9,4,"#8a6338");p(g,4,7,"#3a3a44",9,1);p(g,4,11,"#3a3a44",9,1);disc(g,8,6,3,"#a07745");},950+k));
+CAB.hearth=mkW(32,32,g=>{fill(g,"#4a3020");for(let y=0;y<32;y+=4)for(let x=(y/4%2)*3;x<32;x+=6)p(g,x,y,["#7d786f","#8a857c","#6c6862"][(x+y)%3],5,3);
+  p(g,0,13,"#5a3a22",32,3);p(g,0,13,"#8a6338",32,1);p(g,13,9,"#3a6a8a",6,4);p(g,15,7,"#e8e0cf",1,2);p(g,14,10,"#f4ead2",4,1);
+  p(g,6,17,"#1a1210",20,15);p(g,7,18,"#2a1a14",18,14);p(g,8,27,"#5a3a22",16,3);p(g,9,26,"#6b4a2e",14,2);},960);
+function drawCabinFire(sx,sy,s){for(let k=0;k<9;k++){const ph=(time*2.2+k/9)%1,x=sx+(-8+((k*7)%17))*s/3,y=sy-ph*16*s/3,c=ph<.25?"#fff2c0":ph<.5?"#ffd65e":ph<.75?"#ff8f2e":"#d24617",z=Math.max(2,Math.round((1-ph)*5*s/3));ctx.fillStyle=c;ctx.fillRect(Math.round(x-z/2),Math.round(y-z/2),z,z);}}
+function renderCabin(dt){
+  ctx.fillStyle="#0b0a10";ctx.fillRect(0,0,vw,vh);ctx.imageSmoothingEnabled=false;
+  const RW=ROOM_W*IT,RH=ROOM_H*IT;
+  const ox=RW<=vw-24?Math.round((vw-RW)/2):Math.round(clamp(vw/2-player.x,vw-RW-12,12));
+  const oy=RH<=vh-120?Math.round((vh-RH)/2):Math.round(clamp(vh/2-player.y,vh-RH-12,90));
+  for(let y=0;y<ROOM_H;y++)for(let x=0;x<ROOM_W;x++){const ch=ROOM[y][x],X=ox+x*IT,Y=oy+y*IT,v=(x*7+y*3)%4;
+    const img=ch==="#"?CAB.wall[(x+y)%2]:ch==="S"?CAB.shelf:ch==="w"?CAB.window:ch==="D"?CAB.door:ch==="r"?CAB.rug[v]:ch==="b"?CAB.barrel[v]:CAB.floor[v];
+    ctx.drawImage(img,X,Y,IT,IT);}
+  ctx.drawImage(CAB.hearth,ox+5*IT,oy,IT*2,IT*2);
+  drawCabinFire(ox+6*IT,oy+IT*1.72,3);
+  ctx.drawImage(CAB.cot,ox+1*IT,oy+1*IT,IT,IT*2);
+  ctx.drawImage(CAB.table[state.items.includes("blueprint")?1:0],ox+3*IT,oy+4*IT,IT*2,IT);
+  ctx.drawImage(CAB.bench,ox+9*IT,oy+1*IT,IT*2,IT);
+  const px=Math.round(ox+player.x),py=Math.round(oy+player.y);
+  if(!(player.inv>0&&Math.floor(time*16)%2))drawPerson(px,py,PLAYER_LOOK,player.face,player.anim,player.moving,3);
+  // firelight
+  ctx.fillStyle="rgba(12,6,4,.38)";ctx.fillRect(ox,oy,RW,RH);
+  ctx.globalCompositeOperation="lighter";
+  glow(ox+6*IT,oy+IT*1.7,IT*4.2+Math.sin(time*9)*6,"255,140,50",.32);
+  glow(ox+4.6*IT,oy+4.2*IT,IT*1.6+Math.sin(time*13)*3,"255,200,110",.16);
+  ctx.globalCompositeOperation="source-over";
+  if(state.playing&&state.nearObj&&!state.talking){const o=state.nearObj;nameTag(ox+(o.r[0]+o.r[2])/2*IT,oy+o.r[1]*IT-26,o.name,!isTouch);}
+  if(state.flash>0){ctx.fillStyle=`rgba(220,30,30,${state.flash})`;ctx.fillRect(0,0,vw,vh);}
+  if(stick.on){ctx.strokeStyle="rgba(244,234,210,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(stick.ox,stick.oy,48,0,Math.PI*2);ctx.stroke();const dx=stick.x-stick.ox,dy=stick.y-stick.oy,m=Math.hypot(dx,dy),k=m>48?48/m:1;ctx.fillStyle="rgba(244,234,210,.45)";ctx.beginPath();ctx.arc(stick.ox+dx*k,stick.oy+dy*k,18,0,Math.PI*2);ctx.fill();}
+  if(miniDirty){mbx.putImageData(miniImg,0,0);miniDirty=false;}
+  drawMap(mctx,miniCv.width,false);
+  if(state.mapOpen)drawMap(bctx,bigCv.width,true);
+}
+
+// inventory
+const ICON=fn=>{const c=document.createElement("canvas");c.width=c.height=16;fn(c.getContext("2d"));return c.toDataURL();};
+const ITEM_ICONS={
+  blueprint:ICON(g=>{p(g,2,4,"#1f4f80",12,9);p(g,2,4,"#2f6fb0",12,8);p(g,3,6,"#d8ecff",7,1);p(g,3,8,"#d8ecff",9,1);p(g,3,10,"#d8ecff",5,1);p(g,12,3,"#1f4f80",3,11);p(g,12,3,"#5a9ad8",1,11);p(g,7,4,"#c8384a",2,9);}),
+  coins:ICON(g=>{g.fillStyle="#b8862b";g.beginPath();g.moveTo(8,1);g.lineTo(14,8);g.lineTo(8,15);g.lineTo(2,8);g.closePath();g.fill();p(g,6,4,"#f2c14e",4,8);p(g,7,3,"#fff2c0",1,3);}),
+};
+const relicIcon=c=>ICON(g=>{g.fillStyle=c;g.beginPath();g.moveTo(8,1);g.lineTo(13,8);g.lineTo(8,15);g.lineTo(3,8);g.closePath();g.fill();g.fillStyle="rgba(255,255,255,.65)";g.beginPath();g.moveTo(8,1);g.lineTo(3,8);g.lineTo(7,8);g.closePath();g.fill();});
+const ITEMS={blueprint:{name:"Ship Blueprint",desc:"Plans for a small sailing sloop called the Admiral, signed “Capt. M. Reyes”. A boat like this could cross the open water to the Tide Pearl.",view:"blueprint"}};
+function drawBlueprint(cv){
+  const g=cv.getContext("2d"),Wd=cv.width,Hd=cv.height;g.imageSmoothingEnabled=true;
+  g.fillStyle="#1f5a96";g.fillRect(0,0,Wd,Hd);g.strokeStyle="rgba(255,255,255,.08)";g.lineWidth=1;
+  for(let x=0;x<Wd;x+=20){g.beginPath();g.moveTo(x+.5,0);g.lineTo(x+.5,Hd);g.stroke();}for(let y=0;y<Hd;y+=20){g.beginPath();g.moveTo(0,y+.5);g.lineTo(Wd,y+.5);g.stroke();}
+  g.strokeStyle="rgba(240,248,255,.9)";g.lineWidth=2;g.strokeRect(10,10,Wd-20,Hd-20);g.lineWidth=1;g.strokeRect(16,16,Wd-32,Hd-32);
+  const F=(sz,w=700)=>`${w} ${sz}px "Pixelify Sans", ui-monospace, monospace`;
+  g.fillStyle="#f0f8ff";g.font=F(24);g.textBaseline="top";g.fillText("SLOOP “ADMIRAL”",30,28);g.font=F(13,400);g.fillText("Side elevation · scale 1:40 · sheet 1 of 1",30,58);
+  g.lineWidth=2.4;g.strokeStyle="#f0f8ff";
+  g.beginPath();g.moveTo(80,250);g.lineTo(420,250);g.lineTo(452,232);g.bezierCurveTo(430,300,330,318,250,318);g.bezierCurveTo(170,318,100,300,80,250);g.stroke();
+  g.lineWidth=1.2;for(const k of [.33,.66]){g.beginPath();g.moveTo(84,250+k*18);g.bezierCurveTo(150,250+k*60,360,250+k*62,440,240+k*30);g.stroke();}
+  [180,250,320].forEach(x=>{g.beginPath();g.arc(x,272,6,0,Math.PI*2);g.stroke();});
+  g.lineWidth=2.4;g.beginPath();g.moveTo(250,250);g.lineTo(250,86);g.stroke();
+  g.beginPath();g.moveTo(250,212);g.lineTo(108,222);g.stroke();
+  g.setLineDash([6,5]);g.lineWidth=1.6;g.beginPath();g.moveTo(250,94);g.lineTo(250,208);g.lineTo(114,218);g.closePath();g.stroke();
+  g.beginPath();g.moveTo(254,100);g.lineTo(446,232);g.lineTo(256,212);g.stroke();g.setLineDash([]);
+  g.lineWidth=2;g.beginPath();g.moveTo(80,252);g.lineTo(70,282);g.lineTo(84,282);g.stroke();
+  g.lineWidth=1;g.font=F(12,400);
+  const dim=(x1,y1,x2,y2,label,lx,ly)=>{g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.fillText(label,lx,ly);};
+  dim(80,340,452,340,"34 FT",250,346);[80,452].forEach(x=>{g.beginPath();g.moveTo(x,334);g.lineTo(x,346);g.stroke();});
+  dim(46,86,46,236,"28 FT",54,154);[86,236].forEach(y=>{g.beginPath();g.moveTo(40,y);g.lineTo(52,y);g.stroke();});
+  const bx=Wd-186,by=30;g.strokeRect(bx,by,158,124);g.font=F(14);g.fillText("MATERIALS",bx+12,by+10);g.font=F(13,400);
+  ["Oak planks  x20","Pine mast   x1","Sailcloth   x4","Rope        x6","Nails       1 sack"].forEach((t,k)=>g.fillText("- "+t,bx+12,by+34+k*18));
+  g.font=F(13,400);g.fillText("Property of Capt. M. Reyes",Wd-226,Hd-58);g.fillText("(and Admiral)",Wd-150,Hd-40);
+  g.lineWidth=1.6;const gx=40,gy=Hd-58;g.beginPath();g.ellipse(gx+14,gy+18,12,7,0,0,Math.PI*2);g.moveTo(gx+22,gy+14);g.quadraticCurveTo(gx+30,gy,gx+26,gy-4);g.stroke();g.beginPath();g.moveTo(gx+26,gy-4);g.lineTo(gx+34,gy-2);g.stroke();
+}
+const invOverlay=document.getElementById("invOverlay"),invGrid=document.getElementById("invGrid"),invDetail=document.getElementById("invDetail");
+let invSel=null;
+function invList(){
+  const out=[{id:"coins",name:"Coins",count:state.coins,icon:ITEM_ICONS.coins,desc:"Little gold diamonds you picked up out in the wilds. Tobias would love to hear about them."}];
+  for(const id of state.items)out.push({id,name:ITEMS[id].name,icon:ITEM_ICONS[id],desc:ITEMS[id].desc,view:ITEMS[id].view});
+  for(const r of RELICS)if(r.state===1)out.push({id:"relic"+r.dir,name:r.name,icon:relicIcon(r.color),desc:"A glowing relic from the "+r.dir+". Bring it to the fountain in Hearthvale."});
+  return out;
+}
+function renderInv(){
+  const items=invList();if(!invSel||!items.some(i=>i.id===invSel))invSel=items.length>1?items[1].id:items[0].id;
+  invGrid.textContent="";
+  items.forEach(it=>{const b=document.createElement("button");b.className="item"+(it.id===invSel?" sel":"");b.type="button";
+    const im=document.createElement("img");im.src=it.icon;im.alt="";const nm=document.createElement("span");nm.textContent=it.count!==undefined?`${it.name} (${it.count})`:it.name;
+    b.append(im,nm);b.addEventListener("click",()=>{invSel=it.id;renderInv();});invGrid.appendChild(b);});
+  for(let k=items.length;k<4;k++){const e=document.createElement("div");e.className="item empty";invGrid.appendChild(e);}
+  const it=items.find(i=>i.id===invSel);invDetail.textContent="";
+  const h=document.createElement("h3");h.textContent=it.name;const pp=document.createElement("p");pp.textContent=it.desc;invDetail.append(h,pp);
+  if(it.view==="blueprint"){const c=document.createElement("canvas");c.width=600;c.height=380;c.id="bpCanvas";c.setAttribute("aria-label","Ship blueprint");invDetail.appendChild(c);drawBlueprint(c);}
+}
+function toggleInv(force){
+  state.invOpen=force===undefined?!state.invOpen:force;setShown(invOverlay,state.invOpen);
+  if(state.invOpen){keys.clear();stick.on=false;document.getElementById("invBtn").classList.remove("new");renderInv();}
+}
+document.getElementById("invBtn").addEventListener("click",()=>{if(state.playing&&!state.talking)toggleInv();});
+document.getElementById("invClose").addEventListener("click",()=>toggleInv(false));
+invOverlay.addEventListener("click",e=>{if(e.target===invOverlay)toggleInv(false);});
+
+
 // ---------- update ----------
 function update(dt){
   state.elapsed+=dt;
@@ -791,6 +1119,8 @@ function update(dt){
   if(player.moving)player.anim+=sp*dt*.08;
 
   {let best=null,bd=48;for(const n of npcs){const d=Math.hypot(n.x-player.x,n.y-player.y);if(d<bd){bd=d;best=n;}}state.near=best;}
+  state.nearObj=null;if(!state.near)for(const o of worldObjs){if(Math.hypot(o.x-player.x,o.y-player.y)<38)state.nearObj=o;}
+  if(state.nearObj&&state.nearObj.use===enterCabin&&iy<-.5&&Math.abs(player.x-state.nearObj.x)<16&&player.y<state.nearObj.y+4)return enterCabin();
   const i=tileAt(player.x,player.y),reg=i>=0?region[i]:R_PLAINS,tnow=i>=0?tiles[i]:GRASS;
   state.hurt=0;
   const depth=i>=0?depthT[i]:0;
@@ -798,11 +1128,11 @@ function update(dt){
   state.warm=warm;state.safe=reg===R_CITY||reg===R_PLAINS||warm;
   player.inv=Math.max(0,player.inv-dt);state.flash=Math.max(0,state.flash-dt);
   state.burning=tnow===LAVA;
-  if(tnow===LAVA){player.hp-=30*dt;state.hurt=1;tip("lava");}
+  if(tnow===LAVA){damage(30*dt);state.hurt=1;tip("lava");}
   state.cold=reg===R_N&&depth>.5&&!warm;
-  if(state.cold){player.hp-=(.8+4.4*(depth-.5))*dt;tip("cold");}
+  if(state.cold){damage((.8+4.4*(depth-.5))*dt);tip("cold");}
   if(tnow===SHROOM){if(state.poison<=0)tip("poison");state.poison=3;}
-  if(state.poison>0){state.poison-=dt;player.hp-=5*dt;}
+  if(state.poison>0){state.poison-=dt;damage(5*dt);}
   if(tnow===VENT){const v=ventState(i);if(v.erupt&&player.ventHit!==v.id){player.ventHit=v.id;player.inv=0;hurtPlayer(20,undefined,undefined,"vent");}}
   updateMobs(dt);updateRats(dt);
   if(reg===R_CITY||reg===R_PLAINS)player.hp=Math.min(100,player.hp+14*dt);
@@ -872,8 +1202,8 @@ const NPC_DEFS=[
   talk:g=>g.rel[0]!==0?["You got the Crown? ...Hrmph. Well. Fine. Good work.","Don't let it go to your head. Ha. Crown. Head. I'm hilarious."]:[pick(["The Frost Crown sits near the top of the world. There's no trail. Never was. Pick your way between the ridges and keep the beam in sight.","The pines thin out the higher you go. When there's nothing left but rock and wind, you're close.","Run on the ice and you'll slide clear into next week. Walk it.","Back in my day the mountains were taller. Erosion. Look it up.","Frost wolves hunt the high slopes. You can't fight 'em. You can outrun 'em. Barely.","Cold up top will eat you alive. Find a campfire, sit, and thaw. Wolves won't come near a fire."],g.n)]},
  {name:"Captain Marisol Reyes",role:"Retired sea captain",gate:R_S,at:[0,0],rad:3,speed:45,
   look:{skin:"#8d5a3b",hair:"#1f1612",body:"#2f4f8c",bodyL:"#3d63a8",bodyD:"#233b69",belt:"#e2c06a",accent:"#e9dcc0",legs:"#2d2430",hat:"#c0392b",hatStyle:"bandana"},
-  intro:["AHOY! Captain Marisol Reyes. Retired. My ship sank. Long story. Involves a goose.","The Sunken Coast lies south. Shallow water slows ye down. Deep water? Nobody swims the deep. Not even the goose.","Somewhere out there the shallows wind between the deep water. The Pearl's past 'em. I'd bet my last boot on it.","And sharks. Did I mention sharks? Stay out of the water when ye can."],
-  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end.","Sharks patrol the water. Stay on the sand and they can't touch ye.","Pink jellies drift in the shallows. Slow as anything, but they sting like a tax collector."],g.n)]},
+  intro:["AHOY! Captain Marisol Reyes. Retired. My ship sank. Long story. Involves a goose.","The Sunken Coast lies south. Shallow water slows ye down. Deep water? Nobody swims the deep. Not even the goose.","The Pearl's out on an island, past open water no soul can swim. Ye'd need a boat. I don't have a boat. Long story. Goose.","South o' here the coast breaks into a tangle of sandbars. Deep water between 'em, so mind which way ye turn. At the far southern tip there's my old cabin, with a campfire out front. Rest there. Tell the cabin I said hello.","And sharks. Did I mention sharks? Stay out of the water when ye can."],
+  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:g.blueprint&&g.n%2===0?["Ye found my plans for the Admiral! Took me three winters to draw those.","Build her right and she'll carry ye clear to the Pearl. Needs planks, rope and sailcloth, if memory serves."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end.","My old cabin's on the southernmost sandbar. Campfire's always lit out front. Don't ask me who lights it.","Lost in the sandbars? Keep the sea on yer right and ye'll find yer way out. Or the left. One of them works.","Sharks patrol the water. Stay on the sand and they can't touch ye.","Pink jellies drift in the shallows. Slow as anything, but they sting like a tax collector."],g.n)]},
  {name:"Bram",role:"Woodcutter",gate:R_E,at:[0,0],rad:3,speed:32,
   look:{skin:"#e8b48e",hair:"#b5512d",beard:"#b5512d",body:"#3e7a3a",bodyL:"#4f9248",bodyD:"#2e5c2b",belt:"#5b3d24",legs:"#4a3a2a"},
   intro:["...Hello.","Bram. Woodcutter.","Forest is east. The trees are very old. Be polite to them.","...Spiders live there. And bad mushrooms. Purple ones."],
@@ -952,6 +1282,61 @@ const NPC_DEFS=[
   look:{skin:"#e3b48e",hair:"#8a6a44",body:"#6a5a3a",bodyL:"#7d6c48",bodyD:"#4e422a",belt:"#3b2a1c",legs:"#3b2f2a",glasses:"#222028"},
   intro:["Don't look at me. Look at the wall. Act natural. NATURAL!","I'm Twitch. I know things. I know a guy who knows things. I know a guy who knows that guy."],
   talk:g=>[pick(["The rats in the Warrens are organized. They have a king. I've seen him. Tiny hat.","The Mayor's speeches? Ghostwritten. By a pigeon.","Somebody's following me. ...It's Biscuit. It's always Biscuit.","Word is wolves won't go near a campfire. Word is also I owe Vex money. Both true.","Old Crow said I'd die in a hat accident. I don't wear hats. I'm not taking chances."],g.n)]},
+ {name:"Crier Dunstan",role:"Town crier",at:[8,-5],rad:3,speed:34,
+  look:{skin:"#e8b98f",hair:"#4a2f1e",body:"#c0392b",bodyL:"#d4503f",bodyD:"#932a20",belt:"#e2c06a",accent:"#e2c06a",legs:"#2d2430",hat:"#1d1a20",hatStyle:"feather"},
+  intro:["HEAR YE, HEAR YE! Dunstan, Town Crier, at your service! I cry the news! Loudly! Constantly!","Today's news: a stranger has arrived in Hearthvale! ...Oh. That's you. Hello!"],
+  talk:g=>[g.placed===4?"HEAR YE! The fountain is whole! All four relics returned! Hearthvale is saved! I'm going to need a lozenge."
+   :g.placed>0?`HEAR YE! ${g.placed} of 4 relics are back in the fountain! The Mayor has announced a parade! There is no parade!`
+   :g.carried>0?"HEAR YE! A relic has been spotted! In your pocket! Take it to the fountain, quickly!"
+   :pick(["HEAR YE! The relics are still missing! The fountain is still sad! More at noon!","HEAR YE! Pip has been banned from the bakery! Again!","HEAR YE! Wolves in the north, sharks in the south! Stay in town! Buy local!","HEAR YE! Biscuit the cat has knocked over the Mayor's ink! The Mayor is furious! Biscuit is not sorry!"],g.n)]},
+ {name:"Granny Plum",role:"Fruit seller",dist:D_MARKET,at:[6,3],rad:2,speed:24,
+  look:{skin:"#e8c0a0",hair:"#cfc8c0",body:"#7a3a6a",bodyL:"#924a80",bodyD:"#5e2a50",apron:"#f4f0e6",belt:"#f4f0e6",legs:"#5e2a50",hatStyle:"bun"},
+  intro:["Plums! Plums! Get your plums! You. Yes, you. You look like a person who needs a plum.","I'm Granny Plum. That's not my real name. My real name is also Plum. It's a family business."],
+  talk:g=>[pick(["Fresh plums! Bruised plums! Plums with a little face on them if you squint!","No, I don't take coins. Plums only. ...That's a joke. Give me coins.","Fennick's fish stall is downwind of me. Every single day. It's a crime.","Eat a plum before you go into the wilds. Won't help. Tastes nice, though."],g.n)]},
+ {name:"Fennick",role:"Fishmonger",dist:D_MARKET,at:[-6,4],rad:2,speed:30,
+  look:{skin:"#d9a37a",hair:"#3a2a1e",beard:"#3a2a1e",body:"#3d6a8a",bodyL:"#4f82a8",bodyD:"#2c4f68",apron:"#e8e4dc",belt:"#e8e4dc",legs:"#2d2430",hat:"#2c4f68",hatStyle:"bandana"},
+  intro:["FRESH FISH! Caught this morning! Or last week! Either way, it's a fish!","Fennick's the name, fish is the game. I'm sorry about the smell. I'm not sorry about the puns."],
+  talk:g=>[pick(["What did the ocean say to the shore? Nothing. It just waved.","Captain Reyes buys my fish and tells them stories. The fish don't mind. They're dead.","I'd tell you a shark joke, but it'd go right over your head. Then bite it.","Cod morning! It's always cod morning at Fennick's."],g.n)]},
+ {name:"Zara the Magnificent",role:"Street juggler",dist:D_MARKET,at:[3,-6],rad:3,speed:50,
+  look:{skin:"#8d5a3b",hair:"#1f1612",body:"#e8c33a",bodyL:"#f2d45c",bodyD:"#c9a42a",belt:"#c8384a",accent:"#c8384a",legs:"#c8384a",hat:"#c8384a",hatStyle:"feather"},
+  intro:["Behold! Zara the Magnificent! I can juggle six balls, three knives and one very patient chicken!","The chicken's on break. Union rules."],
+  talk:g=>[pick(["Watch closely! ...Did you see it? No? That's the trick.","I once juggled for the Mayor. She gave a forty-minute speech about it. I juggled through that too.","The secret to juggling is not dropping things. The secret to life is mostly the same.","Pip keeps asking me to teach him. I am not giving that boy knives."],g.n)]},
+ {name:"Brother Aldous",role:"Temple monk",dist:D_OLD,at:[-7,-3],rad:2,speed:22,
+  look:{skin:"#e3b48e",hair:"#8a6a44",body:"#8a6a44",bodyL:"#a08050",bodyD:"#6a4f30",belt:"#3b2a1c",legs:"#6a4f30",hat:"#6a4f30",hatStyle:"hood"},
+  intro:["(whispering) Peace be with you. I have taken a vow of near-silence.","(whispering) It was supposed to be total silence. I kept forgetting."],
+  talk:g=>g.placed>0?["(whispering) The fountain sings again. I almost said something out loud."]:[pick(["(whispering) The temple roof is gold. Not real gold. Do not tell the pigeons.","(whispering) A campfire is a small temple. A warm one. Rest by it.","(whispering) ...","(whispering) I meditate by the well. Mostly I listen to Nana's bread rise."],g.n)]},
+ {name:"Hilda Ironhand",role:"Blacksmith",dist:D_OLD,at:[7,4],rad:2,speed:30,
+  look:{skin:"#e0a880",hair:"#b5512d",body:"#4a3a32",bodyL:"#5a4a40",bodyD:"#3a2c26",apron:"#6a4a2e",belt:"#3b2a1c",legs:"#3b2f2a",hatStyle:"bun"},
+  intro:["Hilda. Blacksmith. Don't touch the anvil. Her name is Gertrude and she doesn't like strangers.","I'd forge you a sword, but you'd only run from wolves with it. Quicker to run without one."],
+  talk:g=>[pick(["Hot iron, cold water and an honest hammer. That's all a body needs.","Sir Reginald brings his sword in for polishing every week. Never been used. Shiniest sword in Hearthvale.","Gertrude says hello. ...She's an anvil. She says it with her heart.","Lava out west? Good for forging. Bad for feet."],g.n)]},
+ {name:"Barnaby Mugwort",role:"Tavern keeper",dist:D_OLD,at:[-4,7],rad:2,speed:28,
+  look:{skin:"#f0c49a",hair:"#6a4a2e",beard:"#6a4a2e",body:"#a84a32",bodyL:"#c0603f",bodyD:"#7d3424",apron:"#e8e4dc",belt:"#e8e4dc",legs:"#3a2a20"},
+  intro:["Welcome, welcome! Barnaby Mugwort, keeper of the Leaky Lantern! Best tavern in Hearthvale. Only tavern in Hearthvale. Still the best.","Adventurers drink free if they come back with a story. You'd be amazed how many don't come back. Saves me a fortune."],
+  talk:g=>g.found>0?[`Ha! ${g.found} relic${g.found>1?"s":""}! Now that's a story! Your drink's on the house. It's water. The house is cheap.`]:[pick(["Old Fenwick tells the same mountain story every night. Every night the sandwich gets bigger.","Twitch owes me for six pints. Vex owes me for twelve. The cat owes me for a fish.","Don't drink the green ale. Nobody knows who brewed it. It was just... here one morning.","Want a tip? Sharks can't follow you onto sand. Want another? Tip your tavern keeper."],g.n)]},
+ {name:"Rolo",role:"King of the Rats",dist:D_WARRENS,at:[4,-7],rad:5,speed:64,scale:1.5,
+  look:{skin:"#e8c0a0",hair:"#5a4030",body:"#5a5252",bodyL:"#6a6262",bodyD:"#4a4242",belt:"#8a6338",legs:"#3a3434",hat:"#c9a43a",hatStyle:"tall",accent:"#c8384a"},
+  intro:["HALT! You stand before Rolo, King of the Rats! Kneel! ...Or don't. Kneeling's optional. It's a casual kingdom.","My subjects are everywhere. Under the crates. In the barrels. In Twitch's nightmares."],
+  talk:g=>[pick(["Twitch says I have a tiny hat. It's a CROWN. It is regular-sized for a king of my stature.","Pip wants to join my gang. Pip is too fast. He'd make the rest of us look bad.","The rats bring me tribute. Mostly crumbs. Sometimes a button. I'm rich in buttons.","Long live the Rat King! That's me. I'm saying it about myself."],g.n)]},
+ {name:"Sister Moth",role:"Philosopher, between homes",dist:D_WARRENS,at:[-8,5],rad:1,speed:18,
+  look:{skin:"#c9a07a",hair:"#8a8278",body:"#5a5a4a",bodyL:"#6a6a58",bodyD:"#4a4a3c",belt:"#3b2a1c",legs:"#4a4a3c",hat:"#4a4a3c",hatStyle:"hood"},
+  intro:["Spare a thought, friend? Not a coin. A thought. I collect them.","I am Sister Moth. I was a scholar once. Then I asked one question too many, and here we are."],
+  talk:g=>g.coins>=100?[`${g.coins} coins. Heavy pockets, light heart? Or the other way round? Think about it. Don't pay me. Just think.`]:[pick(["If a relic glows in the wilds and nobody sees it, is it still lost?","The moth seeks the flame. The wise moth asks the flame what its intentions are.","Everyone in the Warrens is running from something. I'm running from a library fine. Forty years overdue.","Light is just darkness that tried harder."],g.n)]},
+ {name:"Lady Primrose Vane",role:"Noblewoman",dist:D_NOBLE,at:[-6,4],rad:3,speed:24,
+  look:{skin:"#f4d4bc",hair:"#e8c070",body:"#c8a0d8",bodyL:"#dcbce8",bodyD:"#a07cb4",belt:"#f4ead2",accent:"#f4ead2",legs:"#a07cb4",hat:"#a07cb4",hatStyle:"wide"},
+  intro:["Oh. A commoner. In Highgate. How... brave of you.","Lady Primrose Vane. You may address me as 'Your Ladyship', or not at all, which I'd prefer."],
+  talk:g=>g.placed===4?["You restored the fountain? Well. I suppose I could invite you to tea. You'd sit outside, of course."]:[pick(["Pembrook, there's someone standing near me. Do something.","The Warrens? I've heard of them. I've never been. I have people who've never been for me.","My hedges are trimmed daily. By hand. With tiny scissors. Not my hands, obviously.","Mud? On these streets? I'll be writing to the Mayor. Again."],g.n)]},
+ {name:"Pembrook",role:"Butler",dist:D_NOBLE,at:[-4,5],rad:3,speed:24,
+  look:{skin:"#e8c09a",hair:"#2a2a2e",body:"#1d1a20",bodyL:"#2a2630",bodyD:"#141218",belt:"#f4f0e6",accent:"#f4f0e6",legs:"#1d1a20"},
+  intro:["Good day. I am Pembrook, Her Ladyship's butler. I am contractually obligated to be unimpressed by you.","Please don't take it personally. I am unimpressed by everything. It's a professional skill."],
+  talk:g=>[pick(["Her Ladyship asks that you stand slightly further away. Then slightly further than that.","I have served the Vane family for thirty years. I have smiled twice. Both were sneezes.","If you find a relic, I'd recommend not mentioning it to Her Ladyship. She'll want it for a vase.","Very good. ...That is what I say instead of anything else."],g.n)]},
+ {name:"Hazel",role:"Gardener",dist:D_GARDEN,at:[0,0],rad:5,speed:30,
+  look:{skin:"#d9a37a",hair:"#7a5a2a",body:"#5a8a3a",bodyL:"#6aa048",bodyD:"#43692c",apron:"#8a6338",belt:"#8a6338",legs:"#4a3a2a",hat:"#d8b860",hatStyle:"wide"},
+  intro:["Shh! You'll wake the tulips. They had a long night.","I'm Hazel. I keep the gardens. Or the gardens keep me. We're still working out the details."],
+  talk:g=>g.rel[2]!==0?["You found the Heartwood Seed! Every plant in this garden just stood up a little straighter. I felt it."]:[pick(["This oak is called Gerald. He's shy. Say something nice.","The forest east of town is where my plants' great-grandparents live. They never visit.","Purple mushrooms out in the Elderwood? Don't step on them. They hold a grudge. A poisonous one.","Talk to your plants. They won't talk back. Mostly."],g.n)]},
+ {name:"Professor Tibbs",role:"Birdwatcher",dist:D_GARDEN,at:[5,-4],rad:4,speed:22,
+  look:{skin:"#f0c49a",hair:"#d6d2cc",glasses:"#222028",body:"#8a7a4a",bodyL:"#a08e58",bodyD:"#6a5c36",belt:"#5b3d24",legs:"#5a4a30"},
+  intro:["Shh. Shh! There. A lesser speckled hearthwren. ...It's gone. You scared it.","Professor Ambrose Tibbs. I study birds. They study me back, I'm fairly sure."],
+  talk:g=>[pick(["Frost owls nest in the high peaks. Never seen one. Never seen the peaks either, to be honest. Cold.","Gulls over the Sunken Coast! Rude birds. Wonderful birds. Mostly rude.","The pigeons in Fountain Square have a strict hierarchy. The Mayor is not on it.","I once followed a rare bird for six days. It was a leaf. Good leaf, though."],g.n)]},
  {name:"Biscuit",role:"Town cat",at:[-11,1],rad:10,speed:44,cat:true,
   talk:g=>[pick(["Mrrp.","*stares at you, then slowly knocks a pebble off a crate*","*purrs loudly and headbutts your boot*","Mrrrow? (Biscuit would like a snack.)","*ignores you with tremendous dignity*"],g.n)]},
 ];
@@ -972,12 +1357,20 @@ function initNPCs(){
     if(def.gate!==undefined){const [gx,gy]=GATES[def.gate],[ux,uy]=GATE_DIR[def.gate];bx=Math.round(gx-ux*10);by=Math.round(gy-uy*10);}
     else if(def.dist&&cent[def.dist]){const c=cent[def.dist];bx=Math.round(c[0]/c[2]);by=Math.round(c[1]/c[2]);dist=def.dist;}
     const [x,y]=findSpot(bx+def.at[0],by+def.at[1],dist);
-    return{def,x,y,hx:x,hy:y,tx:x,ty:y,wait:Math.random()*2,face:0,anim:Math.random()*6,moving:false,talks:0};});
+    return{def,x,y,hx:x,hy:y,path:[],wait:Math.random()*2,face:0,anim:Math.random()*6,moving:false,talks:0};});
 }
+// Townsfolk walk tile to tile along routes found ahead of time, so they never push into walls, crates or stalls.
+const DIR4=[[1,0],[-1,0],[0,1],[0,-1]];
+const npcWalk=i=>i>=0&&region[i]===R_CITY&&!SOLID[tiles[i]];
 function pickTarget(n){
-  for(let k=0;k<12;k++){const tx=n.hx+(Math.random()*2-1)*n.def.rad*T,ty=n.hy+(Math.random()*2-1)*n.def.rad*T,i=tileAt(tx,ty);
-    if(i>=0&&region[i]===R_CITY&&!SOLID[tiles[i]]&&!collides(tx,ty)){n.tx=tx;n.ty=ty;return;}}
-  n.tx=n.hx;n.ty=n.hy;
+  const sx=Math.floor(n.x/T),sy=Math.floor(n.y/T),hx=Math.floor(n.hx/T),hy=Math.floor(n.hy/T),R=Math.max(1,Math.round(n.def.rad||0))+1;
+  const start=idx(sx,sy),prev=new Map([[start,-1]]),q=[start],cand=[];
+  for(let h=0;h<q.length&&h<1200;h++){const i=q[h],x=i%W,y=(i/W)|0;
+    if(i!==start&&Math.abs(x-hx)<=R&&Math.abs(y-hy)<=R)cand.push(i);
+    for(const [dx,dy] of DIR4){const nx=x+dx,ny=y+dy;if(Math.abs(nx-hx)>R+3||Math.abs(ny-hy)>R+3)continue;const j=idx(nx,ny);if(prev.has(j)||!npcWalk(j))continue;prev.set(j,i);q.push(j);}}
+  n.path=[];if(!cand.length)return;
+  let v=cand[Math.random()*cand.length|0];const pts=[];while(v!==-1){pts.push(v);v=prev.get(v);}pts.reverse();
+  n.path=pts.map(i=>[(i%W+.5)*T,(((i/W)|0)+.5)*T]);
 }
 const faceToward=(dx,dy)=>Math.abs(dx)>Math.abs(dy)?(dx<0?2:3):(dy<0?1:0);
 function updateNPCs(dt){
@@ -985,20 +1378,17 @@ function updateNPCs(dt){
     const dxp=player.x-n.x,dyp=player.y-n.y,dp=Math.hypot(dxp,dyp);
     if(state.talking===n||(state.playing&&dp<56)){n.moving=false;n.face=faceToward(dxp,dyp);continue;}
     if(n.wait>0){n.wait-=dt;n.moving=false;continue;}
-    const tx=n.tx-n.x,ty=n.ty-n.y,d=Math.hypot(tx,ty);
-    if(d<4){n.wait=1+Math.random()*3.5;n.moving=false;pickTarget(n);continue;}
-    const vx=tx/d*n.def.speed*dt,vy=ty/d*n.def.speed*dt;let moved=false;
-    if(!collides(n.x+vx,n.y)){n.x+=vx;moved=true;}
-    if(!collides(n.x,n.y+vy)){n.y+=vy;moved=true;}
-    if(!moved){n.wait=.4+Math.random();pickTarget(n);}
-    n.moving=moved;n.face=faceToward(tx,ty);n.anim+=n.def.speed*dt*.08;
+    if(!n.path||!n.path.length){n.moving=false;n.wait=1+Math.random()*3.5;pickTarget(n);continue;}
+    const [tx,ty]=n.path[0],dx=tx-n.x,dy=ty-n.y,d=Math.hypot(dx,dy),st=n.def.speed*dt;
+    if(d<=st){n.x=tx;n.y=ty;n.path.shift();}else{n.x+=dx/d*st;n.y+=dy/d*st;}
+    n.moving=d>.5;if(d>.5)n.face=faceToward(dx,dy);n.anim+=n.def.speed*dt*.08;
   }
 }
 
 // dialogue
 const dialogEl=document.getElementById("dialog"),dName=document.getElementById("dName"),dRole=document.getElementById("dRole"),dText=document.getElementById("dText"),dNext=document.getElementById("dNext"),talkBtn=document.getElementById("talkBtn");
 const dlg={lines:[],i:0,shown:0};
-function gameFacts(n){const rel=RELICS.map(r=>r.state),placed=rel.filter(s=>s===2).length,carried=rel.filter(s=>s===1).length;return{rel,placed,carried,found:placed+carried,coins:state.coins,hp:Math.round(player.hp),n};}
+function gameFacts(n){const rel=RELICS.map(r=>r.state),placed=rel.filter(s=>s===2).length,carried=rel.filter(s=>s===1).length;return{rel,placed,carried,found:placed+carried,coins:state.coins,hp:Math.round(player.hp),blueprint:state.items.includes("blueprint"),n};}
 function openDialog(n){
   const first=n.talks===0&&n.def.intro;
   dlg.lines=first?n.def.intro.slice():n.def.talk(gameFacts(Math.max(0,n.talks-(n.def.intro?1:0))));
@@ -1015,9 +1405,9 @@ function stepDialog(dt){
   dNext.textContent=done?(isTouch?(last?"Tap to close":"Tap to continue"):(last?"E to close":"E to continue")):"";
 }
 dialogEl.addEventListener("click",()=>{if(state.talking)advanceDialog();});
-talkBtn.addEventListener("click",()=>{if(state.near&&!state.talking)openDialog(state.near);});
+talkBtn.addEventListener("click",()=>{if(state.talking)return;if(state.near)openDialog(state.near);else if(state.nearObj)state.nearObj.use();});
 let talkShown=false;
-function updateTalkBtn(){const show=!!(state.playing&&state.near&&!state.talking&&!state.mapOpen);if(show!==talkShown){talkShown=show;setShown(talkBtn,show);}if(show)talkBtn.textContent="Talk to "+state.near.def.name.split(" ").slice(-1)[0];}
+function updateTalkBtn(){const show=!!(state.playing&&(state.near||state.nearObj)&&!state.talking&&!state.mapOpen&&!state.invOpen);if(show!==talkShown){talkShown=show;setShown(talkBtn,show);}if(show)talkBtn.textContent=state.near?"Talk to "+state.near.def.name.split(" ").slice(-1)[0]:state.nearObj.label();}
 
 // drawing people
 const PLAYER_LOOK={skin:"#f1c69b",hair:"#4a2f1e",body:"#2e7fa8",bodyL:"#3a95c2",bodyD:"#22617f",belt:"#5b3d24",accent:"#c84a3a",legs:"#2d2430"};
@@ -1132,8 +1522,9 @@ function render(dt){
   for(const i of visVents){const sx=(i%W+.5)*T-cx,sy=((i/W|0)+.5)*T-cy,v=ventState(i);
     if(v.warn){for(let k=0;k<4;k++){const ph=(time*1.5+k/4)%1,s=4+ph*6;ctx.fillStyle=`rgba(130,120,120,${.65*(1-ph)})`;ctx.fillRect(Math.round(sx-s/2+Math.sin(k*2+time*3)*4),Math.round(sy-ph*28-s/2),s,s);}}
     if(v.erupt){const e=(v.f-.8)/.2,h=36+Math.sin(e*Math.PI)*44;glow(sx,sy-h/2,44,"255,120,30",.5);ctx.fillStyle="#d24617";ctx.fillRect(sx-8,sy-h,16,h);ctx.fillStyle="#ff8f2e";ctx.fillRect(sx-5,sy-h+4,10,h-4);ctx.fillStyle="#ffd65e";ctx.fillRect(sx-2,sy-h+8,4,h-8);for(let k=0;k<5;k++){const a=time*9+k*1.3;ctx.fillStyle="#ffb347";ctx.fillRect(Math.round(sx+Math.cos(a)*11),Math.round(sy-h-Math.abs(Math.sin(a))*10),3,3);}}}
+  if(state.playing&&state.nearObj&&!state.near&&!state.talking){const o=state.nearObj;nameTag(o.x-cx,o.y-cy-92,o.name,!isTouch);}
   if(state.playing&&state.near&&!state.talking){const n=state.near;nameTag(n.x-cx,n.y-cy-(n.def.cat?38:(n.def.scale||2)*19+22),n.def.name,!isTouch);}
-  if(state.talking){const n=state.talking,bx=Math.round(n.x-cx),by=Math.round(n.y-cy-(n.def.cat?30:(n.def.scale||2)*19+12));ctx.fillStyle="#f4ead2";ctx.fillRect(bx-9,by-8,18,10);ctx.fillRect(bx-2,by+2,4,3);ctx.fillStyle="#1b1408";for(let k=0;k<3;k++)if(Math.floor(time*3)%4>k)ctx.fillRect(bx-6+k*5,by-4,2,2);}
+  if(state.talking&&!state.talking.msg){const n=state.talking,bx=Math.round(n.x-cx),by=Math.round(n.y-cy-(n.def.cat?30:(n.def.scale||2)*19+12));ctx.fillStyle="#f4ead2";ctx.fillRect(bx-9,by-8,18,10);ctx.fillRect(bx-2,by+2,4,3);ctx.fillStyle="#1b1408";for(let k=0;k<3;k++)if(Math.floor(time*3)%4>k)ctx.fillRect(bx-6+k*5,by-4,2,2);}
 
   // atmosphere
   const pi=tileAt(player.x,player.y),reg=pi>=0?region[pi]:R_PLAINS,depth=pi>=0?depthT[pi]:0;
@@ -1171,7 +1562,7 @@ function drawMap(g,size,big){
   // relic markers
   for(const r of RELICS){if(r.state!==0)continue;const x=(r.tx+.5)*k,y=(r.ty+.5)*k,s=(big?7:4)*(size/150>1.5&&!big?1.6:1)*(1+.15*Math.sin(time*4));g.fillStyle=r.color;g.beginPath();g.moveTo(x,y-s);g.lineTo(x+s*.75,y);g.lineTo(x,y+s);g.lineTo(x-s*.75,y);g.closePath();g.fill();}
   // player
-  const px=player.x/T*k,py=player.y/T*k,ps=big?6:Math.max(3,size/60);
+  const wp=state.scene==="cabin"&&state.worldPos?state.worldPos:player,px=wp.x/T*k,py=wp.y/T*k,ps=big?6:Math.max(3,size/60);
   g.fillStyle="#0b0a10";g.fillRect(px-ps/2-1,py-ps/2-1,ps+2,ps+2);g.fillStyle="#ffffff";g.fillRect(px-ps/2,py-ps/2,ps,ps);
   if(big){g.font=`700 ${Math.round(size/26)}px "Pixelify Sans", monospace`;g.fillStyle="#f4ead2";g.textAlign="center";g.textBaseline="top";g.fillText("N",size/2,6);g.textBaseline="bottom";g.fillText("S",size/2,size-6);g.textBaseline="middle";g.textAlign="left";g.fillText("W",8,size/2);g.textAlign="right";g.fillText("E",size-8,size/2);}
 }
@@ -1197,7 +1588,7 @@ function startGame(){
 function win(){
   if(state.screen!=="play")return;
   state.won=true;state.playing=false;state.screen="win";
-  if(state.talking)closeDialog();if(state.mapOpen)toggleMap(false);
+  if(state.talking)closeDialog();if(state.mapOpen)toggleMap(false);if(state.invOpen)toggleInv(false);
   const m=Math.floor(state.elapsed/60),s=Math.floor(state.elapsed%60);
   const ov=document.createElement("div");ov.id="winOverlay";ov.className="overlay";ov.style.display="grid";
   const card=document.createElement("div");card.className="card panel";
@@ -1211,26 +1602,28 @@ document.getElementById("startBtn").addEventListener("click",startGame);
 
 let last=performance.now();
 function frame(now){const dt=Math.max(0,Math.min(.05,((now||performance.now())-last)/1000));last=now||performance.now();time+=dt;
-  if(state.playing&&!state.mapOpen)update(dt);else if(!state.playing&&!state.won)idle(dt);
-  if(!state.mapOpen)updateNPCs(dt);stepDialog(dt);updateTalkBtn();
-  try{render(dt);}catch(err){console.error(err);}
+  const paused=state.mapOpen||state.invOpen;
+  if(state.playing&&!paused){if(state.scene==="cabin")updateCabin(dt);else update(dt);}else if(!state.playing&&!state.won)idle(dt);
+  if(!paused&&state.scene!=="cabin")updateNPCs(dt);stepDialog(dt);updateTalkBtn();
+  try{if(state.scene==="cabin")renderCabin(dt);else render(dt);if(state.fade>0){state.fade=Math.max(0,state.fade-dt);ctx.fillStyle=`rgba(6,4,10,${Math.min(1,state.fade*1.6)})`;ctx.fillRect(0,0,vw,vh);}}catch(err){console.error(err);}
   requestAnimationFrame(frame);}
 
 function boot(data){
   resize();
-  const keep=data&&data.v===6&&typeof data.seed==="number";
+  const keep=data&&data.v===8&&typeof data.seed==="number";
   SEED=keep?data.seed:(Math.random()*1e9)|0;
   generate();resetGame();
   if(keep&&typeof data.px==="number"){
     player.x=data.px;player.y=data.py;player.hp=data.hp??100;state.coins=data.coinCount||0;state.elapsed=data.elapsed||0;
     if(Array.isArray(data.relics))RELICS.forEach((r,k)=>r.state=data.relics[k]||0);
     if(Array.isArray(data.taken))data.taken.forEach(k=>{if(coins[k])coins[k].taken=true;});
+    player.shield=data.shield||0;if(Array.isArray(data.items))state.items=data.items.slice();
     if(Array.isArray(data.talks))data.talks.forEach((t,k)=>{if(npcs[k])npcs[k].talks=t;});
     if(data.playing)startGame();updateHud();
   }
   requestAnimationFrame(frame);
 }
-window.claude?.hot?.snapshot?.(()=>({v:6,seed:SEED,px:player.x,py:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
+window.claude?.hot?.snapshot?.(()=>({v:8,seed:SEED,shield:player.shield,items:state.items,px:state.scene==="cabin"?state.worldPos.x:player.x,py:state.scene==="cabin"?state.worldPos.y:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 })();
 </script>
