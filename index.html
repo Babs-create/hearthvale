@@ -142,6 +142,14 @@ kbd{font-family:var(--display);border:1px solid var(--line);border-bottom-width:
 #dRole{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 #dText{margin:0;font-size:18px;line-height:1.4;min-height:3.6em}
 #dNext{font-size:13px;color:var(--muted);text-align:right;min-height:1.2em}
+#fireBtn{position:fixed;right:max(16px, env(safe-area-inset-right,0px));bottom:calc(78px + env(safe-area-inset-bottom,0px));font-size:17px;padding:10px 16px;background:#c8384a;border-color:#c8384a;color:#fff}
+#fireBtn.cool{opacity:.55}
+@media (pointer:coarse){#fireBtn .k{display:none}}
+#bossBar{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(380px, calc(100vw - 32px));padding:8px 12px;display:flex;flex-direction:column;gap:6px}
+@media (max-width:820px){#bossBar{top:calc(184px + env(safe-area-inset-top,0px))}}
+.bossname{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);text-align:center}
+.bossbar{height:12px;background:#0f2a2a;border:1px solid rgba(0,0,0,.5);position:relative}
+.bossbar i{position:absolute;inset:0 auto 0 0;width:100%;background:#3fc0a0;transition:width .15s linear}
 #talkBtn{position:fixed;right:max(16px, env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));font-size:17px;padding:10px 16px}
 body.talking #toast{bottom:calc(200px + env(safe-area-inset-bottom,0px))}
 body.talking .hint{display:none}
@@ -168,7 +176,9 @@ body.talking .hint{display:none}
 <div id="toast" class="panel"></div>
 <div id="dialog" class="panel" style="display:none" role="dialog" aria-live="polite"><div class="dhead"><span id="dName"></span><span id="dRole"></span></div><p id="dText"></p><div id="dNext"></div></div>
 <button class="btn primary" id="talkBtn" style="display:none">Talk</button>
-<div class="hint panel"><kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> talk &nbsp; <kbd>I</kbd> items &nbsp; <kbd>M</kbd> map</div>
+<button class="btn primary" id="fireBtn" type="button" style="display:none">Fire cannon<span class="k">&nbsp;(F)</span></button>
+<div id="bossBar" class="panel" style="display:none" aria-live="polite"><div class="bossname">The Leviathan</div><div class="bossbar"><i id="bossFill"></i></div></div>
+<div class="hint panel"><kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>E</kbd> talk &nbsp; <kbd>I</kbd> items &nbsp; <kbd>F</kbd> fire &nbsp; <kbd>M</kbd> map</div>
 
 <div id="intro" class="overlay" style="display:grid">
   <div class="card panel">
@@ -180,9 +190,9 @@ body.talking .hint{display:none}
       <div><b>E</b><span>The Forest</span></div>
       <div><b>W</b><span>Fiery Wastelands</span></div>
     </div>
-    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people and uses things. <kbd>I</kbd> opens your inventory. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
+    <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people and uses things. <kbd>I</kbd> opens your inventory. <kbd>F</kbd> fires your boat's cannon. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
     <button class="btn primary" id="startBtn">Start exploring</button>
-    <div class="build">Build 18 &middot; Oct 30</div>
+    <div class="build">Build 23 &middot; Nov 2</div>
   </div>
 </div>
 
@@ -656,7 +666,7 @@ function generate(){
       else if(dd<=2.5){ tiles[i]=r.reg===R_N?SNOW:r.reg===R_E?FLOWERS:ASH; }
     }
   }
-  for(const r of RELICS){const [ox,oy]=r.reg===R_S?[2,2]:[2,1],i=idx(r.tx+ox,r.ty+oy);tiles[i]=CAMP;varr[i]={[R_N]:0,[R_E]:1,[R_S]:2,[R_W]:3}[r.reg];campfires.push({x:r.tx+ox,y:r.ty+oy});}
+  for(const r of RELICS){if(r.reg===R_S)continue;const [ox,oy]=[2,1],i=idx(r.tx+ox,r.ty+oy);tiles[i]=CAMP;varr[i]={[R_N]:0,[R_E]:1,[R_S]:2,[R_W]:3}[r.reg];campfires.push({x:r.tx+ox,y:r.ty+oy});}
   clearGates();
   const gaps=connectRelics();
   computeReach();
@@ -769,7 +779,7 @@ const cam={x:0,y:0};
 const state={screen:"intro",playing:false,mapOpen:false,won:false,elapsed:0,coins:0,region:-1,pendingRegion:-1,pendingT:0,hurt:0};
 function resetGame(){
   player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.hp=100;player.face=0;
-  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;player.shield=0;state.items=[];state.chestUnlocked=false;state.lockOpen=false;state.shopOpen=false;state.choiceOpen=false;state.axeDur=0;state.boat=null;state.sailing=false;chips.length=0;state.scene="world";state.nearObj=null;state.invOpen=false;state.fade=0;buildWorldObjs();state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
+  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;player.shield=0;state.items=[];state.chestUnlocked=false;state.lockOpen=false;state.shopOpen=false;state.choiceOpen=false;state.axeDur=0;state.boat=null;state.sailing=false;chips.length=0;balls.length=0;orbs.length=0;splashes.length=0;slams.length=0;state.levi=null;state.shake=0;state.leviBeaten=false;state.scene="world";state.nearObj=null;state.invOpen=false;state.fade=0;buildWorldObjs();state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
   resetMini();reveal(CX,CY,CITY_R+4);updateHud();initNPCs();if(state.talking)closeDialog();state.near=null;
   cam.x=player.x-vw/2;cam.y=player.y-vh/2;
 }
@@ -784,6 +794,7 @@ window.addEventListener("keydown",e=>{
   if(state.invOpen){if(k==="i"||k==="escape"){toggleInv(false);}return;}
   if(state.playing&&!state.mapOpen&&(k==="e"||k===" "||k==="enter")){e.preventDefault();if(state.talking){advanceDialog();return;}if(state.near){openDialog(state.near);return;}if(state.nearObj){state.nearObj.use();return;}}
   if(k==="i"&&state.playing&&!state.talking&&!state.mapOpen){toggleInv(true);return;}
+  if(k==="f"&&state.playing&&state.sailing&&!state.talking&&!state.mapOpen){fireCannon();return;}
   if(k==="escape"&&state.talking){closeDialog();return;}
   if(k==="m"&&state.playing&&!state.talking&&!state.invOpen){toggleMap();return;}
   if(k==="escape"&&state.mapOpen){toggleMap(false);return;}
@@ -821,7 +832,7 @@ function collides(x,y){
 let toastTimer=0;
 function toast(msg,ms=3200){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),ms);}
 let bannerTimer=0;
-function banner(reg){const info=reg===200?{name:"The Abyss",sub:"South \u00b7 The black water \u00b7 Krakens"}:reg>=100?DISTRICT_INFO[reg-100]:REGION_INFO[reg];document.getElementById("bName").textContent=info.name;document.getElementById("bSub").textContent=info.sub;const b=document.getElementById("banner");b.classList.add("show");clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>b.classList.remove("show"),2600);}
+function banner(reg){if(time<(state.bannerLock||0))return;const info=reg===200?{name:"The Abyss",sub:"South \u00b7 The black water \u00b7 Krakens"}:reg>=100?DISTRICT_INFO[reg-100]:REGION_INFO[reg];document.getElementById("bName").textContent=info.name;document.getElementById("bSub").textContent=info.sub;const b=document.getElementById("banner");b.classList.add("show");clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>b.classList.remove("show"),2600);}
 
 const slotsEl=document.getElementById("slots");
 RELICS.forEach(r=>{const d=document.createElement("div");d.className="slot";d.style.setProperty("--c",r.color);d.title=r.name;slotsEl.appendChild(d);r.el=d;});
@@ -859,6 +870,11 @@ const TIPS={
   imp:"An ember imp! They float right over the lava.",
   shark:"Shark! Get out of the water. They can't follow you onto land.",
   jelly:"Jellyfish sting. They drift slowly, so steer around them.",
+  cannon:"The Admiral has a cannon! Press F (or tap Fire cannon) to shoot. It aims at the nearest enemy by itself.",
+  levi:"The Leviathan, a kraken the size of an island! Shoot it while it's above water. Sail out of the green rings before its tentacles slam down, and run from its whirlpool. Watch out when it calls krakens to help. Nothing can hurt you while you stand on the island, so step ashore to catch your breath.",
+  storm:"The Leviathan's storm walls ring the battle. There's no way out until it's beaten.",
+  ambush:"Its shadow is hunting you from below! Keep sailing so it doesn't burst up under your boat.",
+  whirlpool:"A whirlpool is dragging you toward the Leviathan and slowing you down! Hold Shift and fight your way out.",
   kraken:"A kraken! They only live in the black water of the Abyss. Hold Shift and sail for shallower water.",
   abyss:"The Abyss. Krakens hunt this black water. Keep moving and don't let them catch you.",
 };
@@ -896,11 +912,14 @@ function updateMobs(dt){
     const D=MOB[m.kind],dp=Math.hypot(dxp,dyp),dh=Math.hypot(m.x-m.hx,m.y-m.hy);
     m.cd=Math.max(0,m.cd-dt);m.anim+=dt;
     m.chasing=D.aggro>0&&state.playing&&!state.safe&&!state.talking&&dp<(m.chasing?D.aggro*1.6:D.aggro)&&dh<D.leash&&(m.kind!==SHARK||pWater);
-    if(m.chasing){mobMove(m,player.x,player.y,D.chase,dt);}
+    if(m.chasing){if(m.kind===KRAKEN){if(m.ang===undefined)m.ang=Math.random()*Math.PI*2;mobMove(m,player.x+Math.cos(m.ang)*44,player.y+Math.sin(m.ang)*20,D.chase,dt);}else mobMove(m,player.x,player.y,D.chase,dt);}
     else if(m.wait>0){m.wait-=dt;m.moving=false;}
     else if(!mobMove(m,m.tx,m.ty,D.wander,dt)||Math.hypot(m.tx-m.x,m.ty-m.y)<4){m.wait=.8+Math.random()*2.5;mobTarget(m);}
-    if(m.kind===KRAKEN){if(!state.sailing)m.chasing=false;m.rise=(m.rise||0)+(((m.chasing||dp<300)?1:0)-(m.rise||0))*Math.min(1,dt*2.2);}
-    if(state.playing&&dp<D.reach&&m.cd===0&&(m.kind!==SHARK||pWater)&&(m.kind!==KRAKEN||state.sailing)&&!(state.sailing&&m.kind===JELLY)){
+    if(m.kind===KRAKEN&&(m.chasing||m.summoned))for(const o of mobs){if(o===m||o.kind!==KRAKEN)continue;let ex=m.x-o.x,ey=m.y-o.y,e=Math.hypot(ex,ey);if(e>=120)continue;
+      if(e<.5){const a=Math.random()*Math.PI*2;ex=Math.cos(a);ey=Math.sin(a);e=1;}const push=Math.min(120-e,170*dt),nx=m.x+ex/e*push,ny=m.y+ey/e*push;
+      if(mobFree(KRAKEN,nx,m.y,m.reg))m.x=nx;if(mobFree(KRAKEN,m.x,ny,m.reg))m.y=ny;}
+    if(m.kind===KRAKEN){const hide=leviUp()&&!m.summoned;if(m.summoned)m.chasing=state.sailing&&state.playing;if(!state.sailing||hide)m.chasing=false;m.rise=(m.rise||0)+(((m.chasing||(dp<300&&!hide))?1:0)-(m.rise||0))*Math.min(1,dt*2.2);}
+    if(state.playing&&dp<D.reach&&m.cd===0&&(m.kind!==SHARK||pWater)&&(m.kind!==KRAKEN||(state.sailing&&(!leviUp()||m.summoned)))&&!(state.sailing&&m.kind===JELLY)){
       if(hurtPlayer(D.dmg,m.x,m.y,D.tip)){m.cd=D.cd;if(m.kind===SPIDER)state.poison=Math.max(state.poison,2.5);}
     }
   }
@@ -925,9 +944,9 @@ function spawnMobs(rng){
   }
   // krakens: only in the Abyss, spread apart, and never right beside the Pearl's island
   const P=RELICS[1];let made=0,tries=0;
-  while(made<16&&tries<60000){tries++;const x=6+(rng()*(W-12)|0),y=6+(rng()*(H-12)|0),i=idx(x,y);
+  while(made<30&&tries<80000){tries++;const x=6+(rng()*(W-12)|0),y=6+(rng()*(H-12)|0),i=idx(x,y);
     if(tiles[i]!==ABYSS)continue;const px=(x+.5)*T,py=(y+.5)*T;if(!mobFree(KRAKEN,px,py,R_S))continue;
-    if(Math.hypot(P.tx-x,P.ty-y)<30)continue;if(mobs.some(m=>m.kind===KRAKEN&&Math.hypot(m.x/T-x,m.y/T-y)<70))continue;
+    if(Math.hypot(P.tx-x,P.ty-y)<30)continue;if(mobs.some(m=>m.kind===KRAKEN&&Math.hypot(m.x/T-x,m.y/T-y)<52))continue;
     mobs.push({kind:KRAKEN,reg:R_S,x:px,y:py,hx:px,hy:py,tx:px,ty:py,wait:rng()*3,cd:0,anim:rng()*10,face:1,moving:false,chasing:false,rise:0});made++;}
 }
 function placeCamps(rng){
@@ -1038,7 +1057,7 @@ let darkA=0;
 
 // ---------- the cabin, bonus health and the inventory ----------
 function damage(n){if(player.shield>0){const a=Math.min(player.shield,n);player.shield-=a;n-=a;}player.hp-=n;}
-function showBanner(name,sub){document.getElementById("bName").textContent=name;document.getElementById("bSub").textContent=sub;const b=document.getElementById("banner");b.classList.add("show");clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>b.classList.remove("show"),2600);}
+function showBanner(name,sub,ms=2600){document.getElementById("bName").textContent=name;document.getElementById("bSub").textContent=sub;const b=document.getElementById("banner");b.classList.add("show");clearTimeout(bannerTimer);bannerTimer=setTimeout(()=>b.classList.remove("show"),ms);}
 function showMessage(name,role,lines){dlg.after=null;dlg.lines=lines;dlg.i=0;dlg.shown=0;state.talking={msg:true};keys.clear();stick.on=false;dName.textContent=name;dRole.textContent=role;setShown(dialogEl,true);document.body.classList.add("talking");}
 const ROOM_W=12,ROOM_H=9,IT=48;
 const ROOM=[
@@ -1262,11 +1281,12 @@ function shoreSpot(){
   return best;
 }
 const launchObj={name:"Water's edge",tag:48,x:0,y:0,spot:null,label:()=>"Launch the boat",use:()=>launch(launchObj.spot)};
-const shoreObj={name:"Shore",tag:48,x:0,y:0,spot:null,label:()=>"Go ashore",use:()=>goAshore(shoreObj.spot)};
+const shoreObj={name:"Shore",tag:48,x:0,y:0,spot:null,label:()=>shoreObj.blocked?"Can't land yet":"Go ashore",use:()=>{if(shoreObj.blocked)return toast("The Leviathan's wake keeps you from the shore! Beat it first, or land back on the Pearl's island.",4200);goAshore(shoreObj.spot);}};
 const boatObj={name:"The Admiral",tag:54,x:0,y:0,label:()=>"Use the boat",use:()=>openChoice("The Admiral","Your little sloop, bobbing at the water's edge.",[
   {label:"Board",primary:true,fn:board},{label:"Pack it away",fn:packBoat},{label:"Cancel"}])};
 function launch(spot){
   if(!spot||!state.items.includes("boat"))return;
+  setTimeout(()=>tip("cannon"),900);
   takeItems("boat",1);state.boat={x:spot.x,y:spot.y,face:player.face===2?2:3};board();
   toast("You push the Admiral into the water and climb aboard.");
 }
@@ -1284,6 +1304,7 @@ function drawBoat(sx,sy,face,withPlayer){
   ctx.fillStyle="#4a3020";ctx.beginPath();ctx.moveTo(sx-24,y-6);ctx.lineTo(sx+24,y-6);ctx.lineTo(sx+(f>0?18:-18)+(f>0?8:-8),y-10);ctx.lineTo(sx+18*f,y+6);ctx.lineTo(sx-18*f,y+6);ctx.closePath();ctx.fill();
   ctx.fillStyle="#8a6338";ctx.fillRect(sx-20,y-6,40,4);ctx.fillStyle="#a07745";ctx.fillRect(sx-20,y-6,40,1);
   ctx.fillStyle="#f2c14e";ctx.fillRect(sx-10,y-1,3,2);ctx.fillRect(sx+6,y-1,3,2);
+  ctx.fillStyle="#2a2830";ctx.fillRect(sx+(f>0?12:-20),y-10,8,4);ctx.fillStyle="#4a4852";ctx.fillRect(sx+(f>0?12:-20),y-10,8,1);
 }
 function craftBoat(){
   const w=countItem("wood"),c=countItem("cloth");
@@ -1292,6 +1313,211 @@ function craftBoat(){
   if(w<20||c<2)return showMessage("Workbench","",["You spread the blueprint across the bench.",`The Admiral needs 20 wood and 2 pieces of cloth. You have ${Math.min(w,20)}/20 wood and ${Math.min(c,2)}/2 cloth.`]);
   takeItems("wood",20);takeItems("cloth",2);giveItem("boat");state.fade=1.2;
   showMessage("Workbench","",["You saw, plane, nail and stitch for hours. The hearth burns low.","The Admiral is finished! She's in your inventory. Stand at the water's edge and press E to launch her."]);
+}
+
+// ---------- the Admiral's cannon and the Leviathan ----------
+const balls=[],splashes=[],orbs=[],slams=[];
+const MOB_HP={[SHARK]:1,[JELLY]:1,[KRAKEN]:3};
+const LEVI_MAX=96;
+let fireCd=0;
+const isWaterTile=i=>i>=0&&isWater(tiles[i]);
+const leviUp=()=>!!(state.levi&&state.levi.phase!=="dying");
+const leviFightOn=()=>RELICS[1].state===1&&!state.leviBeaten;
+const ARENA=50;
+function arenaRect(){const P=RELICS[1];return{x0:(P.tx-ARENA)*T,y0:(P.ty-ARENA)*T,x1:(P.tx+ARENA)*T,y1:(P.ty+ARENA)*T};}
+function outsideArena(x,y){if(!leviFightOn())return false;const A=arenaRect();return x<A.x0+20||x>A.x1-20||y<A.y0+20||y>A.y1-20;}
+// krakens the Leviathan calls to its aid
+function clearSummons(){for(let k=mobs.length-1;k>=0;k--)if(mobs[k].summoned){splashes.push({x:mobs[k].x,y:mobs[k].y,t:0,kind:"splash"});mobs.splice(k,1);}}
+function summonKrakens(L){
+  if(!state.sailing)return;
+  const have=mobs.filter(m=>m.summoned).length,want=Math.min(L.enraged?3:2,4-have);if(want<=0)return;
+  let made=0;
+  for(let k=0;k<200&&made<want;k++){const a=Math.random()*Math.PI*2,r=150+Math.random()*120,x=player.x+Math.cos(a)*r,y=player.y+Math.sin(a)*r,i=tileAt(x,y);
+    if(i<0||tiles[i]!==ABYSS||outsideArena(x,y)||!mobFree(KRAKEN,x,y,R_S))continue;
+    if(mobs.some(o=>o.kind===KRAKEN&&Math.hypot(o.x-x,o.y-y)<140))continue;
+    mobs.push({kind:KRAKEN,reg:R_S,x,y,hx:x,hy:y,tx:x,ty:y,wait:0,cd:1,anim:Math.random()*10,face:1,moving:false,chasing:true,rise:.15,summoned:true,hp:MOB_HP[KRAKEN],ang:Math.atan2(y-player.y,x-player.x)});
+    for(let q=0;q<3;q++)splashes.push({x:x+(q-1)*16,y,t:-q*.1,kind:"splash"});made++;}
+  if(made){state.shake=Math.max(state.shake||0,.4);toast(made>1?"The Leviathan calls "+made+" krakens to its aid!":"The Leviathan calls a kraken to its aid!",3000);}
+}
+function fireCannon(){
+  if(!state.sailing||fireCd>0)return;
+  fireCd=.75;
+  const oy=player.y-8;let best=null,bd=580;
+  const L=state.levi;
+  if(L&&L.phase==="surface"){const d=Math.hypot(L.x-player.x,L.y-34-oy);if(d<bd){bd=d;best={x:L.x,y:L.y-34};}}
+  for(const m of mobs){if(!(m.kind===SHARK||(m.kind===KRAKEN&&(m.rise||0)>.4)))continue;const d=Math.hypot(m.x-player.x,m.y-8-oy);if(d<bd){bd=d;best={x:m.x,y:m.y-8};}}
+  let ax,ay;
+  if(best){ax=best.x-player.x;ay=best.y-oy;}
+  else if(Math.hypot(player.vx,player.vy)>20){ax=player.vx;ay=player.vy;}
+  else{ax=state.boat.face===2?-1:1;ay=0;}
+  const m=Math.hypot(ax,ay)||1,life=best?Math.min(1.2,bd/540+.12):1.05;
+  balls.push({x:player.x+ax/m*22,y:oy+ay/m*22,vx:ax/m*540,vy:ay/m*540,life,max:life});
+  splashes.push({x:player.x+ax/m*26,y:oy+ay/m*26,t:0,kind:"smoke"});
+  state.boat.face=ax<0?2:3;
+}
+function waterFreeBig(x,y){return isWaterTile(tileAt(x,y))&&isWaterTile(tileAt(x-26,y))&&isWaterTile(tileAt(x+26,y))&&isWaterTile(tileAt(x,y-16))&&isWaterTile(tileAt(x,y+16));}
+function leviSpot(cx,cy,rMin,rMax){for(let k=0;k<120;k++){const a=Math.random()*Math.PI*2,r=rMin+Math.random()*(rMax-rMin),x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;if(waterFreeBig(x,y)&&!outsideArena(x,y)&&!outsideArena(x+60,y+60)&&!outsideArena(x-60,y-60))return{x,y};}return null;}
+// a dive spot whose straight path from (fx,fy) stays over open water the whole way
+function leviSpotFrom(fx,fy,cx,cy,rMin,rMax){
+  for(let k=0;k<160;k++){const sp=leviSpot(cx,cy,rMin,rMax);if(!sp)return null;
+    const n=Math.ceil(Math.hypot(sp.x-fx,sp.y-fy)/16);let ok=true;
+    for(let q=1;q<n&&ok;q++){const x=fx+(sp.x-fx)*q/n,y=fy+(sp.y-fy)*q/n;if(!waterFreeBig(x,y))ok=false;}
+    if(ok)return sp;}
+  return null;
+}
+function hitBoss(L){
+  L.hp--;L.flash=.15;
+  if(!L.enraged&&L.hp<=LEVI_MAX/2){L.enraged=true;toast("The Leviathan is enraged! Its glow turns red and it attacks faster.");}
+  if(L.hp<=0){L.phase="dying";L.t=0;L.pull=0;state.leviBeaten=true;orbs.length=0;slams.length=0;clearSummons();showBanner("Leviathan defeated","The way home to Hearthvale is clear");toast("The Leviathan sinks into the deep. Take the Tide Pearl home!",4500);}
+}
+function updateCombat(dt){
+  fireCd=Math.max(0,fireCd-dt);
+  for(let k=balls.length-1;k>=0;k--){const b=balls[k];b.life-=dt;b.x+=b.vx*dt;b.y+=b.vy*dt;let hit=false;
+    const L=state.levi;
+    if(L&&L.phase==="surface"&&Math.hypot(b.x-L.x,(b.y-(L.y-34))*.8)<62){hitBoss(L);hit=true;}
+    if(!hit)for(let j=mobs.length-1;j>=0;j--){const m=mobs[j];if(!(m.kind===SHARK||m.kind===JELLY||m.kind===KRAKEN))continue;if(m.kind===KRAKEN&&(m.rise||0)<.4)continue;
+      if(Math.hypot(b.x-m.x,b.y-(m.y-8))<(m.kind===KRAKEN?46:24)){hit=true;m.hp=(m.hp??MOB_HP[m.kind])-1;m.chasing=true;if(m.hp<=0){mobs.splice(j,1);for(let q=0;q<3;q++)splashes.push({x:m.x+(q-1)*14,y:m.y,t:-q*.08,kind:"splash"});}break;}}
+    if(hit||b.life<=0){splashes.push({x:b.x,y:b.y,t:0,kind:hit?"boom":isWaterTile(tileAt(b.x,b.y))?"splash":"dust"});balls.splice(k,1);}}
+  for(let k=splashes.length-1;k>=0;k--){splashes[k].t+=dt;if(splashes[k].t>.6)splashes.splice(k,1);}
+  updateLeviathan(dt);
+}
+// the Leviathan's three attacks: water orbs, tentacle slams and a whirlpool
+// Tentacle slams come in three patterns that take turns. Each one always leaves a gap to escape through.
+function startSlams(L){
+  if(!state.sailing)return;
+  const px=player.x,py=player.y,add=(x,y,delay)=>slams.push({x,y,t:-delay});
+  const pat=(L.slamN=(L.slamN||0)+1)%3;
+  if(pat===1){ // a cage: one on you, a ring around you with one gap, and an outer ring when enraged
+    add(px,py,0);
+    const n=L.enraged?9:7,gap=Math.random()*n|0,a0=Math.random()*Math.PI*2;
+    for(let k=0;k<n;k++){if(k===gap)continue;const a=a0+k/n*Math.PI*2;add(px+Math.cos(a)*100,py+Math.sin(a)*100,.05*k);}
+    if(L.enraged){const m=12,g2=(gap*m/n|0)%m;for(let k=0;k<m;k++){if(k===g2||k===(g2+1)%m)continue;const a=a0+k/m*Math.PI*2;add(px+Math.cos(a)*195,py+Math.sin(a)*195,.55+.03*k);}}
+  }else if(pat===2){ // two sweeping lines that cross where you are, slamming from the far end inward
+    const a0=Math.random()*Math.PI,len=L.enraged?6:5;
+    for(const a of [a0,a0+Math.PI/2])for(const sd of [-1,1])for(let k=len;k>=0;k--){if(k===0&&sd<0)continue;add(px+Math.cos(a)*k*68*sd,py+Math.sin(a)*k*68*sd,(len-k)*.13);}
+  }else{ // a storm of tentacles falling all around you
+    add(px,py,0);
+    const n=L.enraged?16:11;
+    for(let k=0;k<n;k++){const a=Math.random()*Math.PI*2,r=55+Math.random()*190;add(px+Math.cos(a)*r,py+Math.sin(a)*r,.1+k*.09);}
+  }
+}
+function updateLeviathan(dt){
+  let L=state.levi;
+  for(let k=slams.length-1;k>=0;k--){const s=slams[k];const was=s.t;s.t+=dt;
+    if(was<1&&s.t>=1){state.shake=Math.max(state.shake||0,.25);if(Math.hypot(player.x-s.x,player.y-s.y)<46&&isWaterTile(tileAt(player.x,player.y)))hurtPlayer(22,s.x,s.y,"levi");}
+    if(s.t>1.6)slams.splice(k,1);}
+  if(L&&L.phase==="dying"){L.t+=dt;if(L.t>2.4)state.levi=null;return;}
+  if(!leviFightOn()){if(L){state.levi=null;orbs.length=0;slams.length=0;}clearSummons();return;}
+  if(!L){const sp=leviSpot(player.x,player.y,280,400);if(!sp)return;
+    L=state.levi={x:sp.x,y:sp.y,hp:LEVI_MAX,phase:"rising",t:0,face:1,orbT:2.4,spT:3.6,next:"slam",pull:0,biteCd:0,flash:0,enraged:false,anim:0};return;}
+  if(state.sailing)tip("levi");
+  L.t+=dt;L.anim+=dt;L.flash=Math.max(0,L.flash-dt);L.biteCd=Math.max(0,L.biteCd-dt);
+  const dx=player.x-L.x,dy=player.y-L.y,d=Math.hypot(dx,dy);
+  if(L.phase==="rising"){if(L.t>1.4){L.phase="surface";L.t=0;}}
+  else if(L.phase==="surface"){
+    const spd=L.enraged?115:90;
+    if(d>70&&L.pull<=0){const vx=dx/d*spd*dt,vy=dy/d*spd*dt;if(waterFreeBig(L.x+vx,L.y)&&!outsideArena(L.x+vx,L.y))L.x+=vx;if(waterFreeBig(L.x,L.y+vy)&&!outsideArena(L.x,L.y+vy))L.y+=vy;}
+    if(Math.abs(dx)>4)L.face=dx<0?-1:1;
+    if(d<84&&L.biteCd===0&&state.sailing){L.biteCd=1.8;hurtPlayer(18,L.x,L.y,"levi");}
+    // attack 1: a spread of water orbs
+    L.orbT-=dt;
+    if(L.orbT<=0&&d<720){L.orbT=L.enraged?1.7:2.5;const n=L.enraged?5:3,mx=L.x,my=L.y-24,base=Math.atan2(player.y-10-my,player.x-mx);
+      for(let k=0;k<n;k++){const a=base+(k-(n-1)/2)*.27;orbs.push({x:mx,y:my,vx:Math.cos(a)*215,vy:Math.sin(a)*215,life:3.4});}}
+    // attacks 2 and 3 take turns: tentacle slams and the whirlpool
+    L.spT-=dt;
+    if(L.spT<=0&&d<700){L.spT=L.enraged?3.4:4.6;
+      if(L.next==="slam"){startSlams(L);L.next="pool";}
+      else if(L.next==="pool"){if(state.sailing){L.pull=3.5;tip("whirlpool");}L.next="summon";}
+      else if(L.next==="summon"){summonKrakens(L);L.next="ambush";}
+      else{L.next="slam";if(state.sailing){L.phase="ambushDive";L.t=0;L.pull=0;}}}
+    if(L.pull>0){L.pull-=dt;
+      if(state.sailing&&d>40){const f=(L.enraged?165:135)*dt,nx=player.x-dx/d*f,ny=player.y-dy/d*f;
+        if(!boatCollides(nx,player.y)&&!outsideArena(nx,player.y))player.x=nx;if(!boatCollides(player.x,ny)&&!outsideArena(player.x,ny))player.y=ny;state.boat.x=player.x;state.boat.y=player.y;}}
+    if(L.t>(L.enraged?6.5:8)){L.phase="diving";L.t=0;L.pull=0;}
+  }
+  else if(L.phase==="diving"){if(L.t>1){const sp=leviSpotFrom(L.x,L.y,player.x,player.y,220,340)||leviSpotFrom(L.x,L.y,L.x,L.y,120,300)||{x:L.x,y:L.y};L.fx=L.x;L.fy=L.y;L.tx=sp.x;L.ty=sp.y;L.phase="under";L.t=0;}}
+  else if(L.phase==="ambushDive"){if(L.t>.7){L.phase="ambush";L.t=0;tip("ambush");}}
+  else if(L.phase==="ambush"){const sp=L.enraged?190:160;
+    if(d>4){const vx=dx/d*Math.min(d,sp*dt),vy=dy/d*Math.min(d,sp*dt);if(waterFreeBig(L.x+vx,L.y)&&!outsideArena(L.x+vx,L.y))L.x+=vx;if(waterFreeBig(L.x,L.y+vy)&&!outsideArena(L.x,L.y+vy))L.y+=vy;}
+    if(L.t>2.3){state.shake=Math.max(state.shake||0,.7);
+      for(let q=0;q<10;q++){const a=q/10*Math.PI*2;splashes.push({x:L.x+Math.cos(a)*54,y:L.y+Math.sin(a)*22,t:-q*.02,kind:"splash"});}splashes.push({x:L.x,y:L.y-20,t:0,kind:"boom"});
+      if(state.sailing&&Math.hypot(player.x-L.x,player.y-L.y)<76)hurtPlayer(28,L.x,L.y,"levi");
+      L.phase="rising";L.t=1;}}
+  else if(L.phase==="under"){const q=Math.min(1,L.t/1.8);L.x=L.fx+(L.tx-L.fx)*q;L.y=L.fy+(L.ty-L.fy)*q;if(q>=1){L.phase="rising";L.t=0;}}
+  for(let k=orbs.length-1;k>=0;k--){const o=orbs[k];o.life-=dt;o.x+=o.vx*dt;o.y+=o.vy*dt;
+    if(state.sailing&&Math.hypot(o.x-player.x,o.y-(player.y-10))<18){hurtPlayer(12,o.x,o.y,"levi");splashes.push({x:o.x,y:o.y,t:0,kind:"splash"});orbs.splice(k,1);continue;}
+    if(o.life<=0||!isWaterTile(tileAt(o.x,o.y))){splashes.push({x:o.x,y:o.y,t:0,kind:"splash"});orbs.splice(k,1);}}
+}
+let bossShown=false,lastBossHp=-1;
+function updateBossBar(){const L=state.levi,show=!!(L&&state.playing&&state.scene!=="cabin");
+  if(show!==bossShown){bossShown=show;setShown(document.getElementById("bossBar"),show);}
+  if(show){const hp=L.phase==="dying"?0:L.hp;if(hp!==lastBossHp){lastBossHp=hp;document.getElementById("bossFill").style.width=(hp/LEVI_MAX*100)+"%";}}}
+let fireShown=false,fireReady=null;
+function updateFireBtn(){const b=document.getElementById("fireBtn"),show=!!(state.playing&&state.sailing&&state.scene!=="cabin"&&!state.talking&&!state.mapOpen&&!state.invOpen&&!state.choiceOpen&&!state.shopOpen&&!state.lockOpen);
+  if(show!==fireShown){fireShown=show;setShown(b,show);}
+  const ready=fireCd===0;if(show&&ready!==fireReady){fireReady=ready;b.classList.toggle("cool",!ready);}}
+document.getElementById("fireBtn").addEventListener("click",()=>fireCannon());
+// A giant green cephalopod: a tall squid-like mantle with fins, glowing spots and eight long arms spread across the water.
+function drawLeviathan(L,cx,cy){
+  const sx=L.x-cx,sy=L.y-cy,t=L.anim;
+  const up=L.phase==="surface"?1:L.phase==="rising"?Math.min(1,L.t/1.4):L.phase==="diving"?Math.max(0,1-L.t):L.phase==="ambushDive"?Math.max(0,1-L.t/.7):L.phase==="dying"?Math.max(0,1-L.t/2.4):0;
+  const fl=L.flash>0,skin=fl?"#d8ffd8":"#2e8a46",dark=fl?"#b8f0c0":"#1a5a2e",deep=fl?"#a8e0b0":"#123f20",belly=fl?"#f0fff0":"#7fd06a",glowc=L.enraged?"255,90,50":"190,255,110";
+  // shadow
+  ctx.fillStyle="rgba(2,14,10,.5)";ctx.beginPath();ctx.ellipse(sx,sy,L.phase==="under"||L.phase==="ambush"?40:L.phase==="diving"||L.phase==="rising"||L.phase==="ambushDive"?58:96,L.phase==="under"||L.phase==="ambush"?16:L.phase==="diving"||L.phase==="rising"||L.phase==="ambushDive"?22:34,0,0,Math.PI*2);ctx.fill();
+  if(L.phase==="rising"){ctx.strokeStyle="rgba(200,255,200,.65)";ctx.lineWidth=2;for(let k=0;k<4;k++){const ph=(L.t*1.2+k/4)%1;ctx.globalAlpha=1-ph;ctx.beginPath();ctx.ellipse(sx,sy,30+ph*90,12+ph*34,0,0,Math.PI*2);ctx.stroke();}ctx.globalAlpha=1;}
+  if(L.phase==="ambush"){const q=Math.min(1,L.t/2.3),pr=.5+.5*Math.sin(L.t*(6+q*14));ctx.strokeStyle=`rgba(255,${Math.round(120-q*80)},60,${(.45+.45*pr).toFixed(2)})`;ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(sx,sy,76,30,0,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=`rgba(255,90,60,${(.08+.14*q).toFixed(2)})`;ctx.beginPath();ctx.ellipse(sx,sy,76*q,30*q,0,0,Math.PI*2);ctx.fill();}
+  if(L.pull>0){ctx.save();ctx.translate(sx,sy);ctx.scale(1,.42);for(let k=0;k<4;k++){ctx.strokeStyle=`rgba(190,240,255,${(.55-k*.1).toFixed(2)})`;ctx.lineWidth=3;ctx.beginPath();const r0=60+k*40,a0=-t*2.6+k*1.3;ctx.arc(0,0,r0,a0,a0+3.6);ctx.stroke();}ctx.restore();}
+  if(up<=.02)return;
+  // eight arms spread across the surface
+  for(let k=0;k<8;k++){const base=k/8*Math.PI*2+.2;let px=sx+Math.cos(base)*26,py=sy+Math.sin(base)*10;
+    for(let j=1;j<=10;j++){const q=j/10,ang=base+Math.sin(t*1.8+k*.9+j*.5)*.4*q,nx=px+Math.cos(ang)*12*up,ny=py+Math.sin(ang)*5*up-(j>8?Math.sin(t*3+k)*4*up:0);
+      ctx.strokeStyle=dark;ctx.lineWidth=Math.max(2.5,(13-j*1.15)*up);ctx.lineCap="round";ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(nx,ny);ctx.stroke();
+      ctx.strokeStyle=skin;ctx.lineWidth=Math.max(1.5,(10-j*.95)*up);ctx.beginPath();ctx.moveTo(px,py-1);ctx.lineTo(nx,ny-1);ctx.stroke();
+      if(j%2===0&&j<9){ctx.fillStyle=belly;ctx.fillRect(Math.round(nx-1),Math.round(ny),2,2);}
+      px=nx;py=ny;}}
+  ctx.lineCap="butt";
+  // foam where the mantle meets the water
+  ctx.fillStyle="rgba(225,255,235,.6)";ctx.beginPath();ctx.ellipse(sx,sy+3,40,10,0,0,Math.PI*2);ctx.fill();
+  // the mantle: a tall pointed hood with side fins
+  const h=96*up,top=sy-h,sway=Math.sin(t*1.3)*4*up;
+  ctx.fillStyle=deep;ctx.beginPath();ctx.moveTo(sx-24+sway*.5,top+h*.28);ctx.lineTo(sx-50+sway,top+h*.1);ctx.lineTo(sx-30,top+h*.5);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(sx+24+sway*.5,top+h*.28);ctx.lineTo(sx+50+sway,top+h*.1);ctx.lineTo(sx+30,top+h*.5);ctx.closePath();ctx.fill();
+  ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(sx+sway,top);ctx.bezierCurveTo(sx+30+sway,top+h*.3,sx+36,sy-18,sx+30,sy);ctx.lineTo(sx-30,sy);ctx.bezierCurveTo(sx-36,sy-18,sx-30+sway,top+h*.3,sx+sway,top);ctx.fill();
+  ctx.fillStyle=dark;ctx.beginPath();ctx.moveTo(sx+sway,top+4);ctx.bezierCurveTo(sx+12+sway,top+h*.35,sx+14,sy-20,sx+10,sy);ctx.lineTo(sx+30,sy);ctx.bezierCurveTo(sx+36,sy-18,sx+30+sway,top+h*.3,sx+sway,top);ctx.fill();
+  // ridges
+  ctx.strokeStyle=deep;ctx.lineWidth=2;for(let k=1;k<5;k++){const y=top+h*k/5.5,w=6+k*5;ctx.beginPath();ctx.moveTo(sx-w+sway*(1-k/5),y);ctx.quadraticCurveTo(sx+sway*(1-k/5),y+4,sx+w+sway*(1-k/5),y);ctx.stroke();}
+  // glowing spots
+  const pulse=.55+.35*Math.sin(t*4);
+  for(const [ox,oy] of [[-10,.3],[9,.42],[-14,.55],[13,.62],[0,.2],[-4,.48]]){const x=sx+ox+sway*(1-oy),y=top+h*oy;glow(x,y,9,glowc,pulse*.8);ctx.fillStyle=`rgba(${glowc},${pulse.toFixed(2)})`;ctx.fillRect(Math.round(x-1.5),Math.round(y-1.5),3,3);}
+  // eyes and beak near the waterline
+  const ey=sy-16*up;
+  for(const s2 of [-1,1]){const ex=sx+s2*16;ctx.fillStyle=deep;ctx.beginPath();ctx.ellipse(ex,ey,10,8,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=L.enraged?"#ff7a4a":"#d8ff60";ctx.beginPath();ctx.ellipse(ex,ey,7.5,6,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#0a140c";ctx.fillRect(Math.round(ex-6),Math.round(ey-1.5),12,3);}
+  const open=L.phase==="surface"&&(L.orbT<.35||L.biteCd>1.5);
+  ctx.fillStyle="#2a1a10";ctx.beginPath();ctx.moveTo(sx-6,sy-4);ctx.lineTo(sx,sy+(open?10:5));ctx.lineTo(sx+6,sy-4);ctx.closePath();ctx.fill();
+  if(open){glow(sx,sy,16,"150,230,255",.5);}
+}
+function drawCombatFx(cx,cy){
+  for(const s of slams){const x=s.x-cx,y=s.y-cy;
+    if(s.t<0)continue;
+    if(s.t<1){const q=s.t;ctx.strokeStyle=`rgba(150,255,120,${(.35+.5*q).toFixed(2)})`;ctx.lineWidth=2+q*2;ctx.beginPath();ctx.ellipse(x,y,46,18,0,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=`rgba(40,120,60,${(.15+.25*q).toFixed(2)})`;ctx.beginPath();ctx.ellipse(x,y,46*q,18*q,0,0,Math.PI*2);ctx.fill();}
+    else{const q=Math.min(1,(s.t-1)/.6),h=(1-Math.abs(q*2-1))*86;
+      ctx.fillStyle="rgba(225,255,235,.7)";ctx.beginPath();ctx.ellipse(x,y,30+q*24,9+q*6,0,0,Math.PI*2);ctx.fill();
+      ctx.lineCap="round";
+      for(const [ox,hs,bend,w] of [[-14,.62,-12,10],[15,.74,13,11],[0,1,14,16]]){const hh=h*hs;
+        ctx.strokeStyle="#1a5a2e";ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x+ox,y);ctx.quadraticCurveTo(x+ox+bend,y-hh*.6,x+ox-4,y-hh);ctx.stroke();
+        ctx.strokeStyle="#2e8a46";ctx.lineWidth=w*.68;ctx.beginPath();ctx.moveTo(x+ox,y-1);ctx.quadraticCurveTo(x+ox+bend,y-hh*.6-1,x+ox-4,y-hh-1);ctx.stroke();}
+      ctx.lineCap="butt";
+      ctx.fillStyle="#7fd06a";for(let k=1;k<5;k++){const qq=k/5;ctx.fillRect(Math.round(x+14*2*qq*(1-qq)-4*qq*qq-6),Math.round(y-h*qq),2,2);}}}
+  for(const o of orbs){const x=o.x-cx,y=o.y-cy;glow(x,y,18,"120,220,240",.4);ctx.fillStyle="#5fc8e0";ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();ctx.fillStyle="#e8fbff";ctx.beginPath();ctx.arc(x-2,y-2,3.5,0,Math.PI*2);ctx.fill();}
+  for(const b of balls){const p=1-b.life/b.max,lift=Math.sin(p*Math.PI)*16,x=b.x-cx,y=b.y-cy;ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.ellipse(x,y+lift*.2,5,2,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#222028";ctx.beginPath();ctx.arc(x,y-lift,5,0,Math.PI*2);ctx.fill();ctx.fillStyle="#7a7880";ctx.fillRect(Math.round(x-2),Math.round(y-lift-3),2,2);}
+  for(const s of splashes){if(s.t<0)continue;const q=s.t/.6,x=s.x-cx,y=s.y-cy;
+    if(s.kind==="splash"){ctx.strokeStyle=`rgba(230,250,255,${(1-q).toFixed(2)})`;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(x,y,6+q*18,3+q*7,0,0,Math.PI*2);ctx.stroke();ctx.fillStyle=`rgba(230,250,255,${(1-q).toFixed(2)})`;for(let k=0;k<5;k++){const a=k/5*Math.PI*2;ctx.fillRect(Math.round(x+Math.cos(a)*q*16),Math.round(y-Math.sin(q*Math.PI)*16+Math.sin(a)*3),2,2);}}
+    else if(s.kind==="boom"){glow(x,y,30*(1-q)+6,"255,170,60",.7*(1-q));ctx.fillStyle=`rgba(255,220,120,${(1-q).toFixed(2)})`;for(let k=0;k<8;k++){const a=k/8*Math.PI*2;ctx.fillRect(Math.round(x+Math.cos(a)*q*22),Math.round(y+Math.sin(a)*q*22),3,3);}}
+    else{const c=s.kind==="dust"?"150,120,90":"200,200,205";for(let k=0;k<4;k++){ctx.fillStyle=`rgba(${c},${(.7*(1-q)).toFixed(2)})`;const z=4+q*8;ctx.fillRect(Math.round(x-z/2+(k-1.5)*5),Math.round(y-q*14-z/2-(k%2)*3),z,z);}}}
 }
 
 // the chest's letter lock
@@ -1413,11 +1639,13 @@ function update(dt){
   if(state.talking){ix=0;iy=0;run=false;}
   const m=Math.hypot(ix,iy);if(m>1){ix/=m;iy/=m;}
   const ti=tileAt(player.x,player.y),tt=ti>=0?tiles[ti]:GRASS;
-  const hit=state.sailing?boatCollides:collides;
-  const target=state.sailing?(tt===DEEP||tt===ABYSS?215:155)*(run?1.25:1):150*SPEED[tt]*(run?1.6:1), acc=state.sailing?3.2:tt===ICE?2.2:14;
+  const baseHit=state.sailing?boatCollides:collides,hit=(x,y)=>{if(outsideArena(x,y)){state.stormBump=true;return true;}return baseHit(x,y);};
+  const target=state.sailing?(tt===DEEP||tt===ABYSS?215:155)*(run?1.25:1)*(state.levi&&state.levi.pull>0?.55:1):150*SPEED[tt]*(run?1.6:1), acc=state.sailing?3.2:tt===ICE?2.2:14;
   player.vx+=(ix*target-player.vx)*Math.min(1,acc*dt);player.vy+=(iy*target-player.vy)*Math.min(1,acc*dt);
   const nx=player.x+player.vx*dt;if(!hit(nx,player.y))player.x=nx;else player.vx*=-.2;
   const ny=player.y+player.vy*dt;if(!hit(player.x,ny))player.y=ny;else player.vy*=-.2;
+  if(state.stormBump){state.stormBump=false;tip("storm");}
+  state.shake=Math.max(0,(state.shake||0)-dt);
   if(state.sailing){state.boat.x=player.x;state.boat.y=player.y;if(Math.abs(player.vx)>8)state.boat.face=player.vx<0?2:3;}
   const sp=Math.hypot(player.vx,player.vy);player.moving=sp>20;
   if(m>.1){player.face=Math.abs(ix)>Math.abs(iy)?(ix<0?2:3):(iy<0?1:0);}
@@ -1425,7 +1653,7 @@ function update(dt){
 
   {let best=null,bd=1e9;if(!state.sailing)for(const n of npcs){const d=Math.hypot(n.x-player.x,n.y-player.y);if(d>=(n.def.reach||48))continue;const sc=n.def.still?d-60:d;if(sc<bd){bd=sc;best=n;}}state.near=best;}
   state.nearObj=null;
-  if(state.sailing){const sp2=shoreSpot();if(sp2){shoreObj.spot=sp2;shoreObj.x=sp2.x;shoreObj.y=sp2.y;state.nearObj=shoreObj;}}
+  if(state.sailing){const sp2=shoreSpot();if(sp2){shoreObj.spot=sp2;shoreObj.x=sp2.x;shoreObj.y=sp2.y;const P=RELICS[1];shoreObj.blocked=leviFightOn()&&Math.hypot(sp2.x/T-P.tx,sp2.y/T-P.ty)>9;state.nearObj=shoreObj;}}
   else if(!state.near){
     for(const o of worldObjs){if(Math.hypot(o.x-player.x,o.y-player.y)<38)state.nearObj=o;}
     if(!state.nearObj&&state.boat&&Math.hypot(state.boat.x-player.x,state.boat.y-player.y)<52){boatObj.x=state.boat.x;boatObj.y=state.boat.y;state.nearObj=boatObj;}
@@ -1446,13 +1674,16 @@ function update(dt){
   if(tnow===SHROOM&&!state.sailing){if(state.poison<=0)tip("poison");state.poison=3;}
   if(state.poison>0){state.poison-=dt;damage(5*dt);}
   if(tnow===VENT&&!state.sailing){const v=ventState(i);if(v.erupt&&player.ventHit!==v.id){player.ventHit=v.id;player.inv=0;hurtPlayer(20,undefined,undefined,"vent");}}
-  updateMobs(dt);updateRats(dt);
+  updateMobs(dt);updateRats(dt);updateCombat(dt);
   if(reg===R_CITY||reg===R_PLAINS)player.hp=Math.min(100,player.hp+14*dt);
   if(warm)player.hp=Math.min(100,player.hp+12*dt);
-  if(player.hp<=0){const lost=Math.floor(state.coins*.1);state.coins-=lost;player.hp=100;player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.inv=1.5;state.poison=0;for(const m of mobs)m.chasing=false;if(state.boat){state.boat=null;state.sailing=false;giveItem("boat");}toast("You collapsed and woke up back in Hearthvale."+(lost?" You dropped "+lost+" coins.":""),4200);}
+  if(player.hp<=0){let pearlLost=false;if(leviUp()&&RELICS[1].state===1){RELICS[1].state=0;pearlLost=true;}state.levi=null;orbs.length=0;balls.length=0;slams.length=0;clearSummons();
+    const lost=Math.floor(state.coins*.1);state.coins-=lost;player.hp=100;player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.inv=1.5;state.poison=0;for(const m of mobs)m.chasing=false;if(state.boat){state.boat=null;state.sailing=false;giveItem("boat");}toast(pearlLost?"The Leviathan dragged you under. You woke up in Hearthvale, and the Tide Pearl is back on its island.":"You collapsed and woke up back in Hearthvale."+(lost?" You dropped "+lost+" coins.":""),5200);}
 
   for(const c of coins){if(!c.taken&&Math.abs(c.x-player.x)<18&&Math.abs(c.y-player.y+4)<18){c.taken=true;state.coins++;}}
-  for(const r of RELICS){if(r.state===0&&Math.hypot((r.tx+.5)*T-player.x,(r.ty+.5)*T-player.y)<24){r.state=1;toast("You found the "+r.name+". Take it back to the fountain in Hearthvale.",4200);}}
+  for(const r of RELICS){if(r.state===0&&Math.hypot((r.tx+.5)*T-player.x,(r.ty+.5)*T-player.y)<24){r.state=1;
+    if(r===RELICS[1]&&!state.leviBeaten){state.shake=1.8;state.fade=.35;state.bannerLock=time+5.4;showBanner("The Leviathan Rises","From the depths of the ocean, the Leviathan rises to defend the Pearl",5200);toast("Storm walls close in around the island. There's no escape until the Leviathan is beaten.",6000);}
+    else toast("You found the "+r.name+". Take it back to the fountain in Hearthvale.",4200);}}
   if(Math.hypot((CX+.5)*T-player.x,(CY+.5)*T-player.y)<2.7*T){
     let placed=0;for(const r of RELICS)if(r.state===1){r.state=2;placed++;}
     const total=RELICS.filter(r=>r.state===2).length;
@@ -1516,7 +1747,7 @@ const NPC_DEFS=[
  {name:"Captain Marisol Reyes",role:"Retired sea captain",gate:R_S,at:[0,0],rad:3,speed:45,
   look:{skin:"#8d5a3b",hair:"#1f1612",body:"#2f4f8c",bodyL:"#3d63a8",bodyD:"#233b69",belt:"#e2c06a",accent:"#e9dcc0",legs:"#2d2430",hat:"#c0392b",hatStyle:"bandana"},
   intro:["AHOY! Captain Marisol Reyes. Retired. My ship sank. Long story. Involves a goose.","The Sunken Coast lies south. Shallow water slows ye down. Deep water? Nobody swims the deep. Not even the goose.","The Pearl's out on an island, past open water no soul can swim. Ye'd need a boat. I don't have a boat. Long story. Goose.","South o' here the coast breaks into a tangle of sandbars. Deep water between 'em, so mind which way ye turn. At the far southern tip there's my old cabin, with a campfire out front. Rest there. Tell the cabin I said hello.","There's a sea chest in there too, locked tight. The password's GOOSE. In honor of the Admiral. Don't tell a soul.","And sharks. Did I mention sharks? Stay out of the water when ye can."],
-  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:g.boat&&g.n%2===0?["Ye built her! The Admiral sails again! Oh, the goose would be so proud.","Take her past the sandbars and out over the deep. The Pearl's waiting on its little island.","Mind the black water further south. That's the Abyss. Krakens live down there. Sail fast and don't stop."]:g.blueprint&&g.n%2===0?["Ye found my plans for the Admiral! Took me three winters to draw those.","Build her right and she'll carry ye clear to the Pearl. She needs 20 wood and 2 pieces of cloth.","The cloth's in my old sea chest. Password's GOOSE, if ye forgot."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end.","Forgot the password to my chest? GOOSE. It's always the goose.","My old cabin's on the southernmost sandbar. Campfire's always lit out front. Don't ask me who lights it.","Lost in the sandbars? Keep the sea on yer right and ye'll find yer way out. Or the left. One of them works.","Far south the sea goes black. The Abyss, we call it. Krakens. Big as a house, mean as a tax collector.","Sharks patrol the water. Stay on the sand and they can't touch ye.","Pink jellies drift in the shallows. Slow as anything, but they sting like a tax collector."],g.n)]},
+  talk:g=>g.rel[1]!==0?["Ye found the Tide Pearl! I could kiss ye! I won't. But I could."]:g.boat&&g.n%2===0?["Ye built her! The Admiral sails again! Oh, the goose would be so proud.","Take her past the sandbars and out over the deep. The Pearl's waiting on its little island.","Mind the black water further south. That's the Abyss. Krakens live down there. Sail fast and don't stop.","One more thing. Old sailors swear a Leviathan guards the Pearl. A kraken as big as an island, green as old rope. Take the Pearl, and the beast rises.","The Admiral has a cannon for a reason. Press F and she'll fire at whatever's nearest. Beat the beast or ye'll never make it home with the Pearl."]:g.blueprint&&g.n%2===0?["Ye found my plans for the Admiral! Took me three winters to draw those.","Build her right and she'll carry ye clear to the Pearl. She needs 20 wood and 2 pieces of cloth.","The cloth's in my old sea chest. Password's GOOSE, if ye forgot."]:[pick(["Follow the pale water, matey. Where the sea turns light, the path is true.","Palm trees mean land. Land means rest. Rest means I tell ye another story. Ye've been warned.","I don't miss the sea. I miss the sea every single day. Both of those are true.","The goose's name was Admiral. He outranked me by the end.","Forgot the password to my chest? GOOSE. It's always the goose.","My old cabin's on the southernmost sandbar. Campfire's always lit out front. Don't ask me who lights it.","Lost in the sandbars? Keep the sea on yer right and ye'll find yer way out. Or the left. One of them works.","Far south the sea goes black. The Abyss, we call it. Krakens. Big as a house, mean as a tax collector.","Sharks patrol the water. Stay on the sand and they can't touch ye.","Pink jellies drift in the shallows. Slow as anything, but they sting like a tax collector."],g.n)]},
  {name:"Bram",role:"Woodcutter",gate:R_E,at:[0,0],rad:3,speed:32,
   look:{skin:"#e8b48e",hair:"#b5512d",beard:"#b5512d",body:"#3e7a3a",bodyL:"#4f9248",bodyD:"#2e5c2b",belt:"#5b3d24",legs:"#4a3a2a"},
   shop:[{id:"axe",price:20,max:1}],
@@ -1813,7 +2044,7 @@ function drawPlayer(sx,sy){
 const visVents=[],visShrooms=[],visLamps=[];
 function render(dt){
   ctx.fillStyle="#0b0a10";ctx.fillRect(0,0,vw,vh);
-  const cx=Math.round(cam.x),cy=Math.round(cam.y);
+  const shk=(state.shake||0)>0?Math.min(1,state.shake)*7:0,cx=Math.round(cam.x+(Math.random()-.5)*shk),cy=Math.round(cam.y+(Math.random()-.5)*shk);
   const x0=Math.max(0,Math.floor(cx/T)),y0=Math.max(0,Math.floor(cy/T)),x1=Math.min(W-1,Math.floor((cx+vw)/T)),y1=Math.min(H-1,Math.floor((cy+vh)/T));
   const tick=Math.floor(time*2);visVents.length=0;visShrooms.length=0;visLamps.length=0;
   for(let y=y0;y<=y1;y++){const sy=y*T-cy;for(let x=x0;x<=x1;x++){
@@ -1849,6 +2080,7 @@ function render(dt){
     drawGem(sx,sy-20+bob,9,r.color);
   }
   const actors=[{y:player.y,draw:()=>state.sailing?drawBoat(Math.round(player.x-cx),Math.round(player.y-cy),state.boat.face,true):drawPlayer(Math.round(player.x-cx),Math.round(player.y-cy))}];
+  if(state.levi){const L=state.levi;actors.push({y:L.y-40,draw:()=>drawLeviathan(L,cx,cy)});}
   if(state.boat&&!state.sailing)actors.push({y:state.boat.y,draw:()=>drawBoat(Math.round(state.boat.x-cx),Math.round(state.boat.y-cy),state.boat.face,false)});
   if(state.sailing&&player.moving){ctx.fillStyle="rgba(230,250,255,.7)";for(let k=0;k<4;k++){const ph=(time*2+k/4)%1;ctx.fillRect(Math.round(player.x-cx-player.vx*.12*ph*3+(k%2?6:-6)*ph),Math.round(player.y-cy+6-player.vy*.12*ph*3),Math.max(1,Math.round(5*(1-ph))),2);}}
   for(const n of npcs){const sx=n.x-cx,sy=n.y-cy;if(sx<-40||sy<-60||sx>vw+40||sy>vh+40)continue;
@@ -1858,6 +2090,22 @@ function render(dt){
   actors.sort((a,b)=>a.y-b.y);for(const a of actors)a.draw();
   for(const n of npcs){if(n.stallTile===undefined)continue;const i=n.stallTile,sx=(i%W)*T-cx,sy=((i/W)|0)*T-cy;if(sx<-T||sy<-T||sx>vw||sy>vh)continue;
     const im=SPR[STALL][varr[i]%SPR[STALL].length];ctx.drawImage(im,0,0,16,8,sx,sy,T,16);}
+  drawCombatFx(cx,cy);
+  if(leviFightOn()&&state.scene!=="cabin"){const A=arenaRect(),x0=A.x0-cx,y0=A.y0-cy,x1=A.x1-cx,y1=A.y1-cy;
+    ctx.fillStyle="rgba(4,14,10,.55)";
+    if(y0>0)ctx.fillRect(0,0,vw,y0);if(y1<vh)ctx.fillRect(0,y1,vw,vh-y1);
+    const ty=Math.max(0,y0),by=Math.min(vh,y1);if(by>ty){if(x0>0)ctx.fillRect(0,ty,x0,by-ty);if(x1<vw)ctx.fillRect(x1,ty,vw-x1,by-ty);}
+    const wall=(ax,ay,bx,by2)=>{const horiz=ay===by2,len=horiz?bx-ax:by2-ay;if(len<=0)return;
+      ctx.fillStyle="rgba(30,70,55,.75)";if(horiz)ctx.fillRect(ax,ay-14,len,28);else ctx.fillRect(ax-14,ay,28,len);
+      for(let k=0;k<len;k+=18){const ph=(time*1.6+k*.037)%1,o=Math.sin(time*5+k*.21)*8,w=10+((k*7)%9);ctx.fillStyle=`rgba(220,255,235,${(.85-ph*.6).toFixed(2)})`;
+        if(horiz)ctx.fillRect(Math.round(ax+k),Math.round(ay+o-3),w,4);else ctx.fillRect(Math.round(ax+o-3),Math.round(ay+k),4,w);}};
+    if(y0>-30&&y0<vh+30)wall(Math.max(x0,-40),y0,Math.min(x1,vw+40),y0);
+    if(y1>-30&&y1<vh+30)wall(Math.max(x0,-40),y1,Math.min(x1,vw+40),y1);
+    if(x0>-30&&x0<vw+30)wall(x0,Math.max(y0,-40),x0,Math.min(y1,vh+40));
+    if(x1>-30&&x1<vw+30)wall(x1,Math.max(y0,-40),x1,Math.min(y1,vh+40));
+    ctx.strokeStyle="rgba(190,220,230,.35)";ctx.lineWidth=1;ctx.beginPath();
+    for(let k=0;k<70;k++){const rx=((k*137.5+time*260)%(vw+80))-40,ry=((k*89.3+time*620)%(vh+60))-30;ctx.moveTo(rx,ry);ctx.lineTo(rx-6,ry+16);}ctx.stroke();
+    if(Math.sin(time*.9)>.985){ctx.fillStyle="rgba(220,255,230,.18)";ctx.fillRect(0,0,vw,vh);}}
   for(let k=chips.length-1;k>=0;k--){const c=chips[k];c.life-=dt;if(c.life<=0){chips.splice(k,1);continue;}c.vy+=420*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;ctx.fillStyle=c.c;ctx.fillRect(Math.round(c.x-cx),Math.round(c.y-cy),3,3);}
   for(const i of visVents){const sx=(i%W+.5)*T-cx,sy=((i/W|0)+.5)*T-cy,v=ventState(i);
     if(v.warn){for(let k=0;k<4;k++){const ph=(time*1.5+k/4)%1,s=4+ph*6;ctx.fillStyle=`rgba(130,120,120,${.65*(1-ph)})`;ctx.fillRect(Math.round(sx-s/2+Math.sin(k*2+time*3)*4),Math.round(sy-ph*28-s/2),s,s);}}
@@ -1902,6 +2150,7 @@ function drawMap(g,size,big){
   g.strokeStyle="rgba(244,234,210,.5)";g.lineWidth=Math.max(1,k*.4);g.strokeRect(cam.x/T*k,cam.y/T*k,vw/T*k,vh/T*k);
   // relic markers
   for(const r of RELICS){if(r.state!==0)continue;const x=(r.tx+.5)*k,y=(r.ty+.5)*k,s=(big?7:4)*(size/150>1.5&&!big?1.6:1)*(1+.15*Math.sin(time*4));g.fillStyle=r.color;g.beginPath();g.moveTo(x,y-s);g.lineTo(x+s*.75,y);g.lineTo(x,y+s);g.lineTo(x-s*.75,y);g.closePath();g.fill();}
+  if(leviFightOn()){const P=RELICS[1];g.strokeStyle="#7fd06a";g.lineWidth=Math.max(1,k*.8);g.strokeRect((P.tx-ARENA)*k,(P.ty-ARENA)*k,ARENA*2*k,ARENA*2*k);}
   if(state.boat&&!state.sailing){const bx=state.boat.x/T*k,by=state.boat.y/T*k,bs=big?5:3;g.fillStyle="#c9a26a";g.fillRect(bx-bs/2,by-bs/2,bs,bs);}
   // player
   const wp=state.scene==="cabin"&&state.worldPos?state.worldPos:player,px=wp.x/T*k,py=wp.y/T*k,ps=big?6:Math.max(3,size/60);
@@ -1946,7 +2195,7 @@ let last=performance.now();
 function frame(now){const dt=Math.max(0,Math.min(.05,((now||performance.now())-last)/1000));last=now||performance.now();time+=dt;
   const paused=state.mapOpen||state.invOpen||state.lockOpen||state.shopOpen||state.choiceOpen;
   if(state.playing&&!paused){if(state.scene==="cabin")updateCabin(dt);else update(dt);}else if(!state.playing&&!state.won)idle(dt);
-  if(!paused&&state.scene!=="cabin")updateNPCs(dt);stepDialog(dt);updateTalkBtn();
+  if(!paused&&state.scene!=="cabin")updateNPCs(dt);stepDialog(dt);updateTalkBtn();updateFireBtn();updateBossBar();
   try{if(state.scene==="cabin")renderCabin(dt);else render(dt);if(state.fade>0){state.fade=Math.max(0,state.fade-dt);ctx.fillStyle=`rgba(6,4,10,${Math.min(1,state.fade*1.6)})`;ctx.fillRect(0,0,vw,vh);}}catch(err){console.error(err);}
   requestAnimationFrame(frame);}
 
@@ -1959,13 +2208,13 @@ function boot(data){
     player.x=data.px;player.y=data.py;player.hp=data.hp??100;state.coins=data.coinCount||0;state.elapsed=data.elapsed||0;
     if(Array.isArray(data.relics))RELICS.forEach((r,k)=>r.state=data.relics[k]||0);
     if(Array.isArray(data.taken))data.taken.forEach(k=>{if(coins[k])coins[k].taken=true;});
-    player.shield=data.shield||0;state.chestUnlocked=!!data.chest;state.axeDur=data.axeDur||0;if(Array.isArray(data.items))state.items=data.items.slice();
+    player.shield=data.shield||0;state.chestUnlocked=!!data.chest;state.axeDur=data.axeDur||0;state.leviBeaten=!!data.levi;if(Array.isArray(data.items))state.items=data.items.slice();
     if(Array.isArray(data.talks))data.talks.forEach((t,k)=>{if(npcs[k])npcs[k].talks=t;});
     if(data.playing)startGame();updateHud();
   }
   requestAnimationFrame(frame);
 }
-window.claude?.hot?.snapshot?.(()=>({v:10,axeDur:state.axeDur,seed:SEED,shield:player.shield,items:state.items,chest:state.chestUnlocked,px:state.scene==="cabin"?state.worldPos.x:player.x,py:state.scene==="cabin"?state.worldPos.y:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
+window.claude?.hot?.snapshot?.(()=>({v:10,levi:state.leviBeaten,axeDur:state.axeDur,seed:SEED,shield:player.shield,items:state.items,chest:state.chestUnlocked,px:state.scene==="cabin"?state.worldPos.x:player.x,py:state.scene==="cabin"?state.worldPos.y:player.y,hp:player.hp,coinCount:state.coins,elapsed:state.elapsed,relics:RELICS.map(r=>r.state),taken:coins.map((c,k)=>c.taken?k:-1).filter(k=>k>=0),playing:state.playing,talks:npcs.map(n=>n.talks)}));
 window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
 })();
 </script>
