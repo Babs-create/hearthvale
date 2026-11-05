@@ -192,7 +192,7 @@ body.talking .hint{display:none}
     </div>
     <div class="keys">Move with <kbd>WASD</kbd> or arrow keys. Hold <kbd>Shift</kbd> to run. <kbd>E</kbd> talks to people and uses things. <kbd>I</kbd> opens your inventory. <kbd>F</kbd> fires your boat's cannon. <kbd>M</kbd> opens the map. On a phone or tablet, drag anywhere to move. Every game builds a new world with no roads through the wilds, so pick your own way. Lava burns, ice slides, and deep water blocks the way. Each land has its own creatures and hazards. Your health refills in the city, the meadows and at campfires in the wilds. If you collapse, you wake up in Hearthvale and drop some coins.</div>
     <button class="btn primary" id="startBtn">Start exploring</button>
-    <div class="build">Build 23 &middot; Nov 2</div>
+    <div class="build">Build 25 &middot; Nov 4</div>
   </div>
 </div>
 
@@ -779,7 +779,7 @@ const cam={x:0,y:0};
 const state={screen:"intro",playing:false,mapOpen:false,won:false,elapsed:0,coins:0,region:-1,pendingRegion:-1,pendingT:0,hurt:0};
 function resetGame(){
   player.x=(CX+.5)*T;player.y=(CY+3.5)*T;player.vx=player.vy=0;player.hp=100;player.face=0;
-  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;player.shield=0;state.items=[];state.chestUnlocked=false;state.lockOpen=false;state.shopOpen=false;state.choiceOpen=false;state.axeDur=0;state.boat=null;state.sailing=false;chips.length=0;balls.length=0;orbs.length=0;splashes.length=0;slams.length=0;state.levi=null;state.shake=0;state.leviBeaten=false;state.scene="world";state.nearObj=null;state.invOpen=false;state.fade=0;buildWorldObjs();state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
+  RELICS.forEach(r=>r.state=0);placeCoins();player.inv=0;player.shield=0;state.items=[];state.chestUnlocked=false;state.lockOpen=false;state.shopOpen=false;state.choiceOpen=false;state.axeDur=0;state.boat=null;state.sailing=false;chips.length=0;balls.length=0;orbs.length=0;splashes.length=0;slams.length=0;loot.length=0;state.levi=null;state.shake=0;state.leviBeaten=false;state.scene="world";state.nearObj=null;state.invOpen=false;state.fade=0;buildWorldObjs();state.poison=0;state.flash=0;state.cold=false;state.warm=false;state.burning=false;state.tips=new Set();state.coins=0;state.elapsed=0;state.won=false;state.region=-1;
   resetMini();reveal(CX,CY,CITY_R+4);updateHud();initNPCs();if(state.talking)closeDialog();state.near=null;
   cam.x=player.x-vw/2;cam.y=player.y-vh/2;
 }
@@ -1316,7 +1316,14 @@ function craftBoat(){
 }
 
 // ---------- the Admiral's cannon and the Leviathan ----------
-const balls=[],splashes=[],orbs=[],slams=[];
+const balls=[],splashes=[],orbs=[],slams=[],loot=[];
+const LOOT_NAMES={tooth:["shark tooth","shark teeth"],ktent:["kraken tentacle","kraken tentacles"],ltent:["leviathan tentacle","leviathan tentacles"],egg:["Leviathan Egg","Leviathan Eggs"]};
+const lootImgs={};
+function lootImg(id){if(!lootImgs[id]){const im=new Image();im.src=ITEM_ICONS[id];lootImgs[id]=im;}return lootImgs[id];}
+function dropLoot(id,n,x,y){loot.push({id,n,x,y,ph:Math.random()*6});}
+function updateLoot(){for(let k=loot.length-1;k>=0;k--){const l=loot[k];if(Math.hypot(l.x-player.x,l.y-player.y)>44)continue;
+  giveItem(l.id,l.n);loot.splice(k,1);const nm=LOOT_NAMES[l.id];toast(l.id==="egg"?"You got the Leviathan Egg! It's warm, and something inside is moving.":`+${l.n} ${l.n>1?nm[1]:nm[0]}`,l.id==="egg"?4500:2200);
+  for(let q=0;q<4;q++)splashes.push({x:l.x+(q-1.5)*10,y:l.y,t:-q*.05,kind:"splash"});}}
 const MOB_HP={[SHARK]:1,[JELLY]:1,[KRAKEN]:3};
 const LEVI_MAX=96;
 let fireCd=0;
@@ -1332,7 +1339,7 @@ function summonKrakens(L){
   if(!state.sailing)return;
   const have=mobs.filter(m=>m.summoned).length,want=Math.min(L.enraged?3:2,4-have);if(want<=0)return;
   let made=0;
-  for(let k=0;k<200&&made<want;k++){const a=Math.random()*Math.PI*2,r=150+Math.random()*120,x=player.x+Math.cos(a)*r,y=player.y+Math.sin(a)*r,i=tileAt(x,y);
+  for(let k=0;k<400&&made<want;k++){const a=Math.random()*Math.PI*2,r=k<300?420+Math.random()*160:300+Math.random()*120,x=player.x+Math.cos(a)*r,y=player.y+Math.sin(a)*r,i=tileAt(x,y);
     if(i<0||tiles[i]!==ABYSS||outsideArena(x,y)||!mobFree(KRAKEN,x,y,R_S))continue;
     if(mobs.some(o=>o.kind===KRAKEN&&Math.hypot(o.x-x,o.y-y)<140))continue;
     mobs.push({kind:KRAKEN,reg:R_S,x,y,hx:x,hy:y,tx:x,ty:y,wait:0,cd:1,anim:Math.random()*10,face:1,moving:false,chasing:true,rise:.15,summoned:true,hp:MOB_HP[KRAKEN],ang:Math.atan2(y-player.y,x-player.x)});
@@ -1368,15 +1375,15 @@ function leviSpotFrom(fx,fy,cx,cy,rMin,rMax){
 function hitBoss(L){
   L.hp--;L.flash=.15;
   if(!L.enraged&&L.hp<=LEVI_MAX/2){L.enraged=true;toast("The Leviathan is enraged! Its glow turns red and it attacks faster.");}
-  if(L.hp<=0){L.phase="dying";L.t=0;L.pull=0;state.leviBeaten=true;orbs.length=0;slams.length=0;clearSummons();showBanner("Leviathan defeated","The way home to Hearthvale is clear");toast("The Leviathan sinks into the deep. Take the Tide Pearl home!",4500);}
+  if(L.hp<=0){dropLoot("ltent",20+(Math.random()*31|0),L.x-34,L.y+6);dropLoot("egg",1,L.x+34,L.y+6);L.phase="dying";L.t=0;L.pull=0;state.leviBeaten=true;orbs.length=0;slams.length=0;clearSummons();showBanner("Leviathan defeated","The way home to Hearthvale is clear");toast("The Leviathan sinks into the deep. Take the Tide Pearl home!",4500);}
 }
 function updateCombat(dt){
-  fireCd=Math.max(0,fireCd-dt);
+  fireCd=Math.max(0,fireCd-dt);updateLoot();
   for(let k=balls.length-1;k>=0;k--){const b=balls[k];b.life-=dt;b.x+=b.vx*dt;b.y+=b.vy*dt;let hit=false;
     const L=state.levi;
     if(L&&L.phase==="surface"&&Math.hypot(b.x-L.x,(b.y-(L.y-34))*.8)<62){hitBoss(L);hit=true;}
     if(!hit)for(let j=mobs.length-1;j>=0;j--){const m=mobs[j];if(!(m.kind===SHARK||m.kind===JELLY||m.kind===KRAKEN))continue;if(m.kind===KRAKEN&&(m.rise||0)<.4)continue;
-      if(Math.hypot(b.x-m.x,b.y-(m.y-8))<(m.kind===KRAKEN?46:24)){hit=true;m.hp=(m.hp??MOB_HP[m.kind])-1;m.chasing=true;if(m.hp<=0){mobs.splice(j,1);for(let q=0;q<3;q++)splashes.push({x:m.x+(q-1)*14,y:m.y,t:-q*.08,kind:"splash"});}break;}}
+      if(Math.hypot(b.x-m.x,b.y-(m.y-8))<(m.kind===KRAKEN?46:24)){hit=true;m.hp=(m.hp??MOB_HP[m.kind])-1;m.chasing=true;if(m.hp<=0){mobs.splice(j,1);if(m.kind===SHARK)dropLoot("tooth",1+(Math.random()*10|0),m.x,m.y);else if(m.kind===KRAKEN)dropLoot("ktent",1+(Math.random()*8|0),m.x,m.y);for(let q=0;q<3;q++)splashes.push({x:m.x+(q-1)*14,y:m.y,t:-q*.08,kind:"splash"});}break;}}
     if(hit||b.life<=0){splashes.push({x:b.x,y:b.y,t:0,kind:hit?"boom":isWaterTile(tileAt(b.x,b.y))?"splash":"dust"});balls.splice(k,1);}}
   for(let k=splashes.length-1;k>=0;k--){splashes[k].t+=dt;if(splashes[k].t>.6)splashes.splice(k,1);}
   updateLeviathan(dt);
@@ -1500,6 +1507,11 @@ function drawLeviathan(L,cx,cy){
   if(open){glow(sx,sy,16,"150,230,255",.5);}
 }
 function drawCombatFx(cx,cy){
+  for(const l of loot){const x=l.x-cx,y=l.y-cy;if(x<-60||y<-60||x>vw+60||y>vh+60)continue;const bob=Math.sin(time*3+l.ph)*3,big=l.id==="egg"||l.id==="ltent",z=big?40:30;
+    ctx.fillStyle="rgba(230,250,255,.55)";ctx.beginPath();ctx.ellipse(x,y+6,z*.55,5,0,0,Math.PI*2);ctx.fill();
+    glow(x,y-6+bob,z,l.id==="egg"?"190,255,110":"255,240,180",.35+.15*Math.sin(time*4+l.ph));
+    const im=lootImg(l.id);if(im.complete)ctx.drawImage(im,Math.round(x-z/2),Math.round(y-z/2-6+bob),z,z);
+    if(l.n>1){ctx.font='600 12px "Pixelify Sans", monospace';ctx.textAlign="center";ctx.textBaseline="top";ctx.fillStyle="#1b1408";ctx.fillText("x"+l.n,x+1,y+z/2-3+bob);ctx.fillStyle="#f2c14e";ctx.fillText("x"+l.n,x,y+z/2-4+bob);ctx.textAlign="left";}}
   for(const s of slams){const x=s.x-cx,y=s.y-cy;
     if(s.t<0)continue;
     if(s.t<1){const q=s.t;ctx.strokeStyle=`rgba(150,255,120,${(.35+.5*q).toFixed(2)})`;ctx.lineWidth=2+q*2;ctx.beginPath();ctx.ellipse(x,y,46,18,0,0,Math.PI*2);ctx.stroke();
@@ -1536,6 +1548,11 @@ lockOverlay.addEventListener("click",e=>{if(e.target===lockOverlay)closeLock();}
 const ICON=fn=>{const c=document.createElement("canvas");c.width=c.height=16;fn(c.getContext("2d"));return c.toDataURL();};
 const ITEM_ICONS={
   blueprint:ICON(g=>{p(g,2,4,"#1f4f80",12,9);p(g,2,4,"#2f6fb0",12,8);p(g,3,6,"#d8ecff",7,1);p(g,3,8,"#d8ecff",9,1);p(g,3,10,"#d8ecff",5,1);p(g,12,3,"#1f4f80",3,11);p(g,12,3,"#5a9ad8",1,11);p(g,7,4,"#c8384a",2,9);}),
+  tooth:ICON(g=>{for(let k=0;k<11;k++){const w=Math.max(1,Math.round(9-k*.8));p(g,4+Math.round(k*.25),2+k,"#8a8070",w+2,1);p(g,5+Math.round(k*.25),2+k,k<2?"#fff8ec":"#e8e0cf",w,1);}p(g,4,2,"#b8ae98",11,2);p(g,6,4,"#ffffff",2,4);}),
+  ktent:ICON(g=>{const pts=[[3,13],[4,11],[5,9],[7,8],[9,7],[11,7],[12,5],[11,3],[9,3]];pts.forEach(([x,y],k)=>{const w=k<4?3:2;p(g,x-1,y-1,"#4a1a2c",w+2,w+2);});pts.forEach(([x,y],k)=>{const w=k<4?3:2;p(g,x,y,"#7a2e4a",w,w);});pts.forEach(([x,y],k)=>{if(k%2===0)p(g,x,y+1,"#d888a8");});}),
+  ltent:ICON(g=>{const pts=[[2,14],[3,12],[4,10],[6,8],[8,7],[10,6],[12,5],[13,3],[12,1],[10,1]];pts.forEach(([x,y],k)=>{const w=k<5?3:2;p(g,x-1,y-1,"#123f20",w+2,w+2);});pts.forEach(([x,y],k)=>{const w=k<5?3:2;p(g,x,y,"#2e8a46",w,w);});pts.forEach(([x,y],k)=>{if(k%2===0)p(g,x,y+1,"#b8ff7a");});}),
+  egg:ICON(g=>{for(let y=1;y<15;y++){const t=(y-1)/13,w=Math.round(Math.sin(Math.min(1,t*1.15)*Math.PI*.98)*5.6+(t>.5?1:0));p(g,8-w-1,y,"#123f20",w*2+2,1);p(g,8-w,y,"#3a9a52",w*2,1);}
+    p(g,5,4,"#7fd06a",2,3);p(g,9,8,"#1a5a2e",2,2);p(g,5,10,"#1a5a2e",2,1);p(g,10,4,"#1a5a2e",1,2);p(g,7,12,"#1a5a2e",2,1);p(g,11,11,"#b8ff7a");p(g,6,7,"#b8ff7a");}),
   cloth:ICON(g=>{p(g,2,5,"#8a8070",12,8);p(g,2,5,"#e8e0cf",12,7);p(g,2,8,"#d8cfb8",12,1);p(g,2,10,"#c8384a",12,1);p(g,3,6,"#fff8ec",10,1);p(g,13,5,"#b8ae98",1,7);}),
   wood:ICON(g=>{for(const [x,y] of [[2,8],[8,8],[5,3]]){p(g,x,y,"#6b4a2e",6,5);p(g,x,y,"#8a6338",6,1);disc(g,x+1,y+2,1,"#c9a26a");p(g,x+1,y+2,"#8a6338");}}),
   axe:ICON(g=>{for(let k=0;k<11;k++)p(g,3+k,13-k,k%2?"#8a6338":"#a07745",2,2);p(g,9,1,"#5a5f6a",6,7);p(g,10,2,"#b8bec8",5,5);p(g,14,2,"#e8eef5",1,5);}),
@@ -1547,7 +1564,11 @@ const ITEMS={blueprint:{name:"Ship Blueprint",desc:"Plans for a small sailing sl
   wood:{name:"Wood",desc:"Split logs, good for building. The ship blueprint calls for 20."},
   axe:{name:"Woodcutter's Axe",desc:()=>`Bram's axe. Cuts palm trees on the coast, pines in the snow and oaks in the meadows, but it's too weak for Elderwood trees. Durability ${state.axeDur}/20.`},
   boat:{name:"The Admiral",desc:"Your own little sloop, built from Captain Reyes's plans. Stand at the water's edge and press E to launch her. Step ashore any time, and pack her away again when you're done."},
-  cloth:{name:"Cloth",desc:"Heavy sailcloth, folded tight and still smelling of the sea. The ship blueprint calls for 2 pieces."}};
+  cloth:{name:"Cloth",desc:"Heavy sailcloth, folded tight and still smelling of the sea. The ship blueprint calls for 2 pieces."},
+  tooth:{name:"Shark Tooth",desc:"A jagged tooth from a shark you sank. Sharp enough to still bite."},
+  ktent:{name:"Kraken Tentacle",desc:"A rubbery maroon tentacle from a sunken kraken. The suckers still twitch now and then."},
+  ltent:{name:"Leviathan Tentacle",desc:"A thick green tentacle from the Leviathan itself, glowing faintly along the suckers."},
+  egg:{name:"Leviathan Egg",desc:"A heavy, speckled green egg the Leviathan left behind. It's warm, and something inside is moving."}};
 // A standing goose in blueprint line art, facing left.
 function drawGoose(g,ox,oy,s){
   g.save();g.translate(ox,oy);g.scale(s,s);g.strokeStyle="#f0f8ff";g.fillStyle="rgba(240,248,255,.1)";g.lineJoin="round";g.lineCap="round";g.lineWidth=1.7/s;
